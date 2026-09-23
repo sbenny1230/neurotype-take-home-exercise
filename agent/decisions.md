@@ -67,3 +67,28 @@ completed items returns `None` (not assessed) rather than a fabricated 0%/Minima
 `review_flag`, `age_at`) and `api/models.py` (`Item`, `Domain`, `Client`, `Assessment`
 dataclasses), test-first in `api/tests/test_scoring.py`. Pytest wired up as the api test
 runner (`requirements.txt`, `agent/rules/testing.md` updated with the run command).
+
+## 2026-09-23 — Restructured api into feature folders, picked FastAPI
+
+Flat `api/main.py` (stdlib), `api/models.py`, `api/scoring.py` reorganized per the
+user's requested layout: `src/<feature>/{model,service,routes}.py`, a `utils/` folder
+for shared helpers, config centralized in `src/config.py` (single place that reads
+env vars), `main.py` reduced to just building the app and registering routers, and
+`tests/` mirroring `src/`.
+
+**Framework:** FastAPI, chosen over Flask — pairs with the python.md rule to use
+dataclasses/pydantic for structured data, gives type-hinted routes and request
+validation for free, and `APIRouter` per feature keeps `main.py` thin without extra
+plumbing.
+
+**Layout:**
+- `src/health/routes.py` — `GET /health`, moved off the stdlib handler.
+- `src/assessments/{model,service}.py` — the scoring module from the previous entry,
+  moved as-is. No `routes.py` yet since no assessments endpoints exist — added when
+  that task lands, not scaffolded empty ahead of time.
+- `src/utils/` — created empty, ready for the first shared helper that isn't
+  feature-specific.
+
+Dockerfile `CMD` now runs `uvicorn src.main:app`; `requirements.txt` gained `fastapi`,
+`uvicorn[standard]`, `httpx` (FastAPI's `TestClient`). Verified: full test suite green,
+and `uvicorn src.main:app` boots and serves `GET /health` → 200.

@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 
-from models import Assessment, Client, Domain, Item
-from scoring import Band, age_at, band_for_percentage, domain_percentage, review_flag
+from src.assessments.model import Assessment, Client, Domain, Item
+from src.assessments.service import Band, age_at, band_for_percentage, domain_percentage, review_flag
 
 CLIENT = Client(
     date_of_birth=date(2014, 3, 2),

@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from models import Assessment, Domain
+from src.assessments.model import Assessment, Domain
 
 SUMMARY_MIN_LENGTH = 200
 
