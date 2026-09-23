@@ -1,0 +1,49 @@
+# Minimal harness for the Neurotype take-home.
+#
+# The contract the panel runs against:
+#   docker compose up          brings everything up
+#   http://localhost:8000/health   returns 200
+#   http://localhost:5173          serves the app
+#
+# Everything else is yours. Swap the framework, swap the database, delete
+# services you do not want, add ones you do. Keep the three lines above true.
+
+services:
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://app:app@db:5432/app
+      DATA_FILE: /data/assessments.jsonl
+      WEB_ORIGIN: http://localhost:5173
+    volumes:
+      - ./api:/app
+      - ./data:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8000
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+
+  # Here so you do not have to think about it. Delete it if you would rather
+  # use SQLite, or replace it with something else entirely.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
