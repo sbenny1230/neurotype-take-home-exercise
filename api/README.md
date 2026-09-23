@@ -25,14 +25,14 @@ thin — it only starts the app and registers routers, it never contains busines
 
 Current features:
 - `health` — liveness check (`GET /health`)
-- `assessments` — scoring/banding/review-flag domain logic, and a `repository.py`
-  that creates the Postgres schema and loads `data/assessments.jsonl` on startup
-  (no HTTP routes yet)
+- `assessments` — scoring/banding/review-flag domain logic, and a `store.py` that
+  creates the Postgres schema and loads `data/assessments.jsonl` on startup (no HTTP
+  routes yet)
 
 ## Data
 
 `data/assessments.jsonl` loads into the `assessments` table on every app startup
-(`src/main.py`'s lifespan hook, via `src/assessments/repository.py`). The load is
+(`src/main.py`'s lifespan hook, via `src/assessments/store.py`). The load is
 idempotent — an `INSERT ... ON CONFLICT (assessment_id) DO UPDATE`, keyed on
 `assessment_id` — so restarting the app re-syncs from the file rather than
 duplicating rows.
@@ -65,7 +65,7 @@ Docker, set them in your shell or a `.env` you source yourself.
 
 ## Tests
 
-`tests/assessments/test_repository.py` runs against a real Postgres (`DATABASE_URL`),
+`tests/assessments/test_store.py` runs against a real Postgres (`DATABASE_URL`),
 so run tests inside the container/compose network, not on the bare host:
 
 ```bash

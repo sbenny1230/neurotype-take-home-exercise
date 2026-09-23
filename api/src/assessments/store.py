@@ -6,10 +6,11 @@ upserts them, so a scoring-logic change is picked up by reloading."""
 from __future__ import annotations
 
 import json
+from datetime import date, datetime
 
 import psycopg
 
-from src.assessments.model import Assessment, parse_assessment
+from src.assessments.model import Assessment, Client, Domain, Item
 from src.assessments.service import band_for_percentage, domain_percentage, review_flag
 
 CREATE_TABLE_SQL = """
@@ -50,6 +51,28 @@ ON CONFLICT (assessment_id) DO UPDATE SET
     domain_scores = EXCLUDED.domain_scores,
     review_flag = EXCLUDED.review_flag
 """
+
+
+def _parse_assessment(data: dict) -> Assessment:
+    client_data = data["client"]
+    client = Client(
+        date_of_birth=date.fromisoformat(client_data["date_of_birth"]),
+        nhs_number=client_data["nhs_number"],
+        guardian_contact=client_data["guardian_contact"],
+        safeguarding_notes=client_data.get("safeguarding_notes"),
+    )
+    domains = [
+        Domain(domain=d["domain"], items=[Item(**item) for item in d["items"]])
+        for d in data["domains"]
+    ]
+    return Assessment(
+        assessment_id=data["assessment_id"],
+        client=client,
+        assessed_at=datetime.fromisoformat(data["assessed_at"]),
+        clinician_id=data["clinician_id"],
+        domains=domains,
+        summary=data["summary"],
+    )
 
 
 def create_schema(conn: psycopg.Connection) -> None:
@@ -97,7 +120,7 @@ def load_jsonl(conn: psycopg.Connection, path: str) -> int:
             line = line.strip()
             if not line:
                 continue
-            assessment = parse_assessment(json.loads(line))
+            assessment = _parse_assessment(json.loads(line))
             cur.execute(UPSERT_SQL, _row_for(assessment))
             count += 1
     conn.commit()

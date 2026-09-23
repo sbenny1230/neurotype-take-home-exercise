@@ -34,25 +34,3 @@ class Assessment:
     clinician_id: str
     domains: list[Domain]
     summary: str
-
-
-def parse_assessment(data: dict) -> Assessment:
-    client_data = data["client"]
-    client = Client(
-        date_of_birth=date.fromisoformat(client_data["date_of_birth"]),
-        nhs_number=client_data["nhs_number"],
-        guardian_contact=client_data["guardian_contact"],
-        safeguarding_notes=client_data.get("safeguarding_notes"),
-    )
-    domains = [
-        Domain(domain=d["domain"], items=[Item(**item) for item in d["items"]])
-        for d in data["domains"]
-    ]
-    return Assessment(
-        assessment_id=data["assessment_id"],
-        client=client,
-        assessed_at=datetime.fromisoformat(data["assessed_at"]),
-        clinician_id=data["clinician_id"],
-        domains=domains,
-        summary=data["summary"],
-    )

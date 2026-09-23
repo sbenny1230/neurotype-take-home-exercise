@@ -125,3 +125,8 @@ completed items showing `band: null`); `docker compose exec api pytest` — 15 p
 including new Postgres-integration tests in `tests/assessments/test_repository.py`
 (insert-with-computed-scoring, idempotent reload, upsert-on-changed-field); full
 `./verify.sh` contract still green.
+
+**Renamed:** `repository.py`/`test_repository.py` → `store.py`/`test_store.py` — the
+user didn't like the original name. Also moved `parse_assessment` out of `model.py`
+into `store.py` (its only caller) so `model.py` stays dataclasses-only, per the user's
+request.

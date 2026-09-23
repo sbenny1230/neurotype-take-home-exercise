@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.assessments.repository import create_schema, load_jsonl
+from src.assessments.store import create_schema, load_jsonl
 from src.config import get_settings
 from src.health.routes import router as health_router
 from src.utils.db import get_connection

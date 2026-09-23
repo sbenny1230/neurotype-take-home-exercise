@@ -5,8 +5,7 @@ import json
 
 import pytest
 
-from src.assessments.repository import create_schema, load_jsonl
-from src.config import get_settings
+from src.assessments.store import create_schema, load_jsonl
 from src.utils.db import get_connection
 
 
