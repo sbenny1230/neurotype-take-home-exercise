@@ -25,7 +25,23 @@ thin — it only starts the app and registers routers, it never contains busines
 
 Current features:
 - `health` — liveness check (`GET /health`)
-- `assessments` — scoring/banding/review-flag domain logic (no routes yet)
+- `assessments` — scoring/banding/review-flag domain logic, and a `repository.py`
+  that creates the Postgres schema and loads `data/assessments.jsonl` on startup
+  (no HTTP routes yet)
+
+## Data
+
+`data/assessments.jsonl` loads into the `assessments` table on every app startup
+(`src/main.py`'s lifespan hook, via `src/assessments/repository.py`). The load is
+idempotent — an `INSERT ... ON CONFLICT (assessment_id) DO UPDATE`, keyed on
+`assessment_id` — so restarting the app re-syncs from the file rather than
+duplicating rows.
+
+Alongside the raw `domains` JSONB, each row also gets `domain_scores` (per-domain
+percentage/band) and `review_flag`, computed once at load time from
+`src/assessments/service.py`. These are a cache for SQL-side filtering/sorting once
+the queue exists, not a second source of truth — if the scoring rules change,
+restarting the app (or re-running the loader) recomputes them from the raw domains.
 
 ## Setup
 
@@ -49,17 +65,17 @@ Docker, set them in your shell or a `.env` you source yourself.
 
 ## Tests
 
-```bash
-cd api
-python3 -m pytest tests/
-```
-
-Or inside the running container:
+`tests/assessments/test_repository.py` runs against a real Postgres (`DATABASE_URL`),
+so run tests inside the container/compose network, not on the bare host:
 
 ```bash
+docker compose up -d db api
 docker compose exec api pytest
 ```
 
+Everything else (`test_service.py`, `test_routes.py`) has no external dependency and
+also runs standalone with `cd api && python3 -m pytest tests/` if you only touched
+pure logic.
+
 Tests mirror `src/`'s structure — `tests/assessments/test_service.py` covers
-`src/assessments/service.py`, and so on. Everything runs with plain `pytest`, no
-manual setup required.
+`src/assessments/service.py`, and so on.

@@ -92,3 +92,36 @@ plumbing.
 Dockerfile `CMD` now runs `uvicorn src.main:app`; `requirements.txt` gained `fastapi`,
 `uvicorn[standard]`, `httpx` (FastAPI's `TestClient`). Verified: full test suite green,
 and `uvicorn src.main:app` boots and serves `GET /health` → 200.
+
+## 2026-09-23 — Load assessments.jsonl into Postgres on startup
+
+**Decision:** `domain_scores` (percentage + band per domain) and `review_flag` are
+stored as columns, computed at load time from `src/assessments/service.py`, rather
+than only recomputed in Python at read time. Asked the user first — the brief flags
+that the live service "holds years of them and takes on more every week," so queue
+filtering/sorting needs to happen in SQL, not by scoring every row in Python on every
+request. They're a cache of the raw `domains` JSONB (the actual source of truth), not
+a second source of truth — reloading recomputes them if the scoring rules change.
+
+**Implemented:**
+- `src/utils/db.py` — `get_connection()`, one psycopg connection per call (ponytail:
+  no pooling yet, add `psycopg_pool` if concurrent load becomes an issue).
+- `src/assessments/model.py` — added `parse_assessment(dict) -> Assessment`, parsing
+  one decoded line of `assessments.jsonl`.
+- `src/assessments/repository.py` — `create_schema` (idempotent `CREATE TABLE IF NOT
+  EXISTS assessments`, one row per assessment: client/PII fields, `assessed_at`,
+  `clinician_id`, raw `domains` JSONB, `summary`, `domain_scores` JSONB,
+  `review_flag`), `load_jsonl` (upserts every line via `INSERT ... ON CONFLICT
+  (assessment_id) DO UPDATE`, so reloading re-syncs instead of duplicating).
+- `src/main.py` — FastAPI `lifespan` hook runs `create_schema` + `load_jsonl` against
+  `DATA_FILE` on every startup.
+
+No `issued_at` / issue-state column yet — that's the issue endpoint's concern, added
+when that task lands rather than scaffolded ahead of time.
+
+**Verified:** `docker compose up --build api` logs `loaded 100 assessments`; spot-checked
+the table in psql (correct bands/percentages, including the two domains with zero
+completed items showing `band: null`); `docker compose exec api pytest` — 15 passed,
+including new Postgres-integration tests in `tests/assessments/test_repository.py`
+(insert-with-computed-scoring, idempotent reload, upsert-on-changed-field); full
+`./verify.sh` contract still green.
