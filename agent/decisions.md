@@ -51,3 +51,19 @@ source):
 - Percentages/bands/flag are calculated, not stored — recompute, don't cache as fixed.
 - Issued reports are immutable except: summary typo corrections remain editable
   afterward (no mechanism for this exists yet — needs building).
+
+## 2026-09-23 — Scoring module: null-item handling
+
+The brief didn't say what happens to `raw: null` items in the domain % mean, so checked
+the dataset before deciding: 48/2229 items (2.2%) are null, spread evenly across all
+five domains, and 2 domain-instances have every item null.
+
+**Decision:** exclude uncompleted/null items from the mean entirely (don't impute,
+don't count as 0). The review flag already surfaces incompleteness separately, so the
+percentage doesn't need to double as an incompleteness penalty. A domain with zero
+completed items returns `None` (not assessed) rather than a fabricated 0%/Minimal band.
+
+**Implemented:** `api/scoring.py` (`domain_percentage`, `band_for_percentage`,
+`review_flag`, `age_at`) and `api/models.py` (`Item`, `Domain`, `Client`, `Assessment`
+dataclasses), test-first in `api/tests/test_scoring.py`. Pytest wired up as the api test
+runner (`requirements.txt`, `agent/rules/testing.md` updated with the run command).

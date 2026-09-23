@@ -1,2 +1,1 @@
-# Deliberately empty. Add whatever you want: fastapi, flask, django,
-# litestar, sqlalchemy, psycopg, pytest. Nothing here is a recommendation.
+pytest
