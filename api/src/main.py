@@ -1,6 +1,3 @@
-"""App entrypoint. Only wires the app together — routes and logic live in
-their feature folders."""
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

@@ -1,5 +1,3 @@
-"""Dataclasses for a parsed assessment record (data/assessments.jsonl shape)."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -39,7 +37,6 @@ class Assessment:
 
 
 def parse_assessment(data: dict) -> Assessment:
-    """Parse one decoded JSON object from data/assessments.jsonl."""
     client_data = data["client"]
     client = Client(
         date_of_birth=date.fromisoformat(client_data["date_of_birth"]),

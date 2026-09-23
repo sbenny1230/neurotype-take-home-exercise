@@ -1,6 +1,3 @@
-"""Single place that reads environment variables. Nothing else in src/ should
-call os.environ directly."""
-
 from __future__ import annotations
 
 import os

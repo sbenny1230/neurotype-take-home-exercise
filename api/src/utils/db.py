@@ -1,5 +1,3 @@
-"""Postgres connection helper. Shared by any feature that needs the database."""
-
 from __future__ import annotations
 
 import psycopg

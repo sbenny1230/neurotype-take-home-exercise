@@ -1,10 +1,7 @@
-"""Postgres access for assessments: schema, and loading data/assessments.jsonl.
-
-domain_scores/review_flag are a cache of scoring.py's output, computed at load
-time so the queue can filter/sort on them in SQL instead of rescoring every
-row in Python on every request. Re-running load_jsonl recomputes and
-upserts them, so a scoring-logic change is picked up by reloading.
-"""
+"""domain_scores/review_flag are a cache of service.py's output, computed at
+load time so the queue can filter/sort on them in SQL instead of rescoring
+every row in Python on every request. Re-running load_jsonl recomputes and
+upserts them, so a scoring-logic change is picked up by reloading."""
 
 from __future__ import annotations
 
