@@ -51,3 +51,104 @@ source):
 - Percentages/bands/flag are calculated, not stored — recompute, don't cache as fixed.
 - Issued reports are immutable except: summary typo corrections remain editable
   afterward (no mechanism for this exists yet — needs building).
+
+## 2026-09-23 — Scoring module: null-item handling
+
+The brief didn't say what happens to `raw: null` items in the domain % mean, so checked
+the dataset before deciding: 48/2229 items (2.2%) are null, spread evenly across all
+five domains, and 2 domain-instances have every item null.
+
+**Decision:** exclude uncompleted/null items from the mean entirely (don't impute,
+don't count as 0). The review flag already surfaces incompleteness separately, so the
+percentage doesn't need to double as an incompleteness penalty. A domain with zero
+completed items returns `None` (not assessed) rather than a fabricated 0%/Minimal band.
+
+**Implemented:** `api/scoring.py` (`domain_percentage`, `band_for_percentage`,
+`review_flag`, `age_at`) and `api/models.py` (`Item`, `Domain`, `Client`, `Assessment`
+dataclasses), test-first in `api/tests/test_scoring.py`. Pytest wired up as the api test
+runner (`requirements.txt`, `agent/rules/testing.md` updated with the run command).
+
+## 2026-09-23 — Restructured api into feature folders, picked FastAPI
+
+Flat `api/main.py` (stdlib), `api/models.py`, `api/scoring.py` reorganized per the
+user's requested layout: `src/<feature>/{model,service,routes}.py`, a `utils/` folder
+for shared helpers, config centralized in `src/config.py` (single place that reads
+env vars), `main.py` reduced to just building the app and registering routers, and
+`tests/` mirroring `src/`.
+
+**Framework:** FastAPI, chosen over Flask — pairs with the python.md rule to use
+dataclasses/pydantic for structured data, gives type-hinted routes and request
+validation for free, and `APIRouter` per feature keeps `main.py` thin without extra
+plumbing.
+
+**Layout:**
+- `src/health/routes.py` — `GET /health`, moved off the stdlib handler.
+- `src/assessments/{model,service}.py` — the scoring module from the previous entry,
+  moved as-is. No `routes.py` yet since no assessments endpoints exist — added when
+  that task lands, not scaffolded empty ahead of time.
+- `src/utils/` — created empty, ready for the first shared helper that isn't
+  feature-specific.
+
+Dockerfile `CMD` now runs `uvicorn src.main:app`; `requirements.txt` gained `fastapi`,
+`uvicorn[standard]`, `httpx` (FastAPI's `TestClient`). Verified: full test suite green,
+and `uvicorn src.main:app` boots and serves `GET /health` → 200.
+
+## 2026-09-23 — Load assessments.jsonl into Postgres on startup
+
+**Decision:** `domain_scores` (percentage + band per domain) and `review_flag` are
+stored as columns, computed at load time from `src/assessments/service.py`, rather
+than only recomputed in Python at read time. Asked the user first — the brief flags
+that the live service "holds years of them and takes on more every week," so queue
+filtering/sorting needs to happen in SQL, not by scoring every row in Python on every
+request. They're a cache of the raw `domains` JSONB (the actual source of truth), not
+a second source of truth — reloading recomputes them if the scoring rules change.
+
+**Implemented:**
+- `src/utils/db.py` — `get_connection()`, one psycopg connection per call (ponytail:
+  no pooling yet, add `psycopg_pool` if concurrent load becomes an issue).
+- `src/assessments/model.py` — added `parse_assessment(dict) -> Assessment`, parsing
+  one decoded line of `assessments.jsonl`.
+- `src/assessments/repository.py` — `create_schema` (idempotent `CREATE TABLE IF NOT
+  EXISTS assessments`, one row per assessment: client/PII fields, `assessed_at`,
+  `clinician_id`, raw `domains` JSONB, `summary`, `domain_scores` JSONB,
+  `review_flag`), `load_jsonl` (upserts every line via `INSERT ... ON CONFLICT
+  (assessment_id) DO UPDATE`, so reloading re-syncs instead of duplicating).
+- `src/main.py` — FastAPI `lifespan` hook runs `create_schema` + `load_jsonl` against
+  `DATA_FILE` on every startup.
+
+No `issued_at` / issue-state column yet — that's the issue endpoint's concern, added
+when that task lands rather than scaffolded ahead of time.
+
+**Verified:** `docker compose up --build api` logs `loaded 100 assessments`; spot-checked
+the table in psql (correct bands/percentages, including the two domains with zero
+completed items showing `band: null`); `docker compose exec api pytest` — 15 passed,
+including new Postgres-integration tests in `tests/assessments/test_repository.py`
+(insert-with-computed-scoring, idempotent reload, upsert-on-changed-field); full
+`./verify.sh` contract still green.
+
+**Renamed:** `repository.py`/`test_repository.py` → `store.py`/`test_store.py` — the
+user didn't like the original name. Also moved `parse_assessment` out of `model.py`
+into `store.py` (its only caller) so `model.py` stays dataclasses-only, per the user's
+request.
+
+## 2026-09-24 — Bug: test suite was wiping the loaded assessments on every verify.sh run
+
+**Found when:** user asked whether the Postgres-load work actually worked. A fresh
+`docker compose up` loaded 100 rows correctly, but `./verify.sh` (which runs
+`docker compose exec api pytest` as its last check) left the table at 0 rows every
+time — confirmed the load was fine and pytest was the culprit by re-checking the row
+count immediately before/after running the suite.
+
+**Root cause:** `tests/assessments/test_store.py`'s `conn` fixture ran
+`TRUNCATE assessments` before and after every test, but tests connected to the same
+`DATABASE_URL` the app itself loads real data into — there was no test/dev database
+separation, so testing the loader destroyed whatever it had just loaded.
+
+**Fix:** `tests/conftest.py` now creates a `<DATABASE_URL>_test` database on the same
+Postgres server (session-scoped, created once if missing), and `test_store.py`
+connects to that instead of `get_connection()`'s real `DATABASE_URL`. The `TRUNCATE`s
+stay — they're safe now, scoped to a database nothing else touches.
+
+**Verified:** reloaded 100 rows, ran `docker compose exec api pytest` (15 passed),
+confirmed row count in the real `app` database was still 100 immediately after; full
+`./verify.sh` green.
