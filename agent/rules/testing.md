@@ -13,5 +13,6 @@
   `cd api && python3 -m pytest tests/`. Pytest wired up alongside the scoring module;
   tests under `api/tests/`, mirroring `api/src/`.
 - web: `docker compose exec web npm test` (vitest, jsdom environment, configured in
-  `web/vite.config.ts`). Tests sit next to the component they cover (`Foo.test.tsx`).
+  `web/vite.config.ts`). Unit tests sit next to the file they cover (`foo.test.ts`,
+  `Foo.test.tsx`). End-to-end tests go in `web/tests/`; no e2e runner is chosen yet.
 - `./verify.sh` runs both suites (api pytest, web vitest) after the contract checks.

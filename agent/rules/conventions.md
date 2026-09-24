@@ -10,5 +10,24 @@
 - Keep this file in sync with the stack once it's chosen (formatter/linter commands, file layout
   conventions, etc.).
 
+## web layout
+
+```
+web/
+  src/
+    components/   reusable components (used by more than one page)
+    styles/       shared styles (theme variables, base styles)
+    services/     RTK Query APIs: one file per backend feature, calling its endpoints
+    features/     Redux slices
+    utils/        small shared helpers (e.g. apiUrl.ts: the api base URL)
+    pages/        one folder per URL, holding that page's component, styles and parts
+    store.ts      Redux store
+  tests/          end-to-end tests (sits next to src/, not inside it)
+```
+
+- Colocate: a file's types (`.type.ts`), interfaces (`.interface.ts`), styles
+  (`.module.css`) and unit tests (`.test.ts` / `.test.tsx`) sit next to it.
+- Create a folder when its first file lands. Don't add empty folders ahead of time.
+
 Language-specific conventions: [python.md](python.md), [typescript.md](typescript.md),
 [react.md](react.md).
