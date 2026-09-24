@@ -1,0 +1,2096 @@
+
+❯ <ide_opened_file>The user opened the file
+  /home/sbenny1230/GitHub/neurotype-take-home-exercise/CLAUDE.md in the IDE.
+  This may or may not be related to the current task.</ide_opened_file>
+
+❯ The Brief
+  Neurotype engineering take-home | Report Review Service | 1 of 2
+  The setup
+  A clinician works through a structured neurodevelopmental assessment with a
+  young person. The output is a report: a
+  rating for each domain, and a written summary. Once a reviewing clinician is
+  happy, it is issued, and copies go to the
+  family, the school and the GP. This is a slice of what we build. The
+  instrument and scoring are invented: this page is the
+  only truth.
+  The constraints
+  A Python backend and a React + TypeScript frontend, coming up with docker
+  compose up on a machine that has only
+  Docker, serving the app on :5173 and answering 200 on :8000/health. Use the
+  harness we sent, or do it yourself.
+  Everything else is your choice.
+  The data
+  Assessments come out of the clinician app as JSON, one per line. We have sent
+  you assessments.jsonl, a sample of a
+  hundred. One line, spread out to read, with most of the items and all but one
+  domain left out:
+  {
+   "assessment_id": "a-00001", "client": { "date_of_birth": "2014-03-02",
+  "nhs_number": "999 476 5919", "guardian_contact": "j.okafor@example.com",
+  "safeguarding_notes": "Contact via mother only. Father not to be given
+  dates." }, "assessed_at": "2026-03-02T09:30:00+00:00", "clinician_id":
+  "c-005", "domains": [ { "domain": "social_communication", "items": [ {
+  "code": "SC1", "raw": 12, "max": 20, "completed": true }, { "code": "SC2",
+  "raw": null, "max": 20, "completed": false } ]} ], "summary": "Free text, up
+  to 8000 characters." }
+  Five domains, three to six items each: social_communication,
+  sensory_processing, executive_function,
+  emotional_regulation, motor_coordination. An item can be not completed, where
+  the young person was unable or
+  unwilling. A hundred is a sample. The live service holds years of them and
+  takes on more every week.
+  The scoring
+  None of the following is in the file. Each domain gets a percentage, the mean
+  of raw / max * 100 across its items, and
+  from that a support-need band: Minimal 0 to 39, Mild 40 to 54, Moderate 55 to
+  84, Substantial 85 to 100. A report also
+  shows the young person's age in years and months at the date of assessment,
+  and a review flag: on when any domain
+  bands Substantial, any item went uncompleted, or the summary runs under 200
+  characters.
+  What we need
+  Reviewing clinicians work a queue of assessments, drawn from everything the
+  service holds. A reviewer needs to see
+  that queue and cut it down: by how an assessment scored, by whether it is
+  flagged, and by which clinician ran it.
+  Opening one shows the whole thing: the client, the results per domain, the
+  summary.
+  When a reviewer is satisfied, they issue the report. Actually delivering the
+  copies is somebody else's problem, not yours.
+  Once issued it is fixed, because those copies are already out. Clinicians do
+  sometimes also need to correct the
+  occasional typo in the summary afterwards, and there is no clean way to do
+  that today. The percentages, bands and flag
+  are values we calculate and are subject to change.
+  Client records get audited. We must be able to show an auditor who looked at
+  what, when, and what changed. Tests are
+  your call: tell us what you thought worth testing.
+  More here than four hours holds, deliberately, so here is the bar. If you get
+  one thing working, make it this: a
+  reviewer opens the queue, narrows it, opens an assessment, and issues the
+  report, running end to end. A narrow
+  path that works beats a broad one that does not. Write down what you left and
+  why; the second document says
+  where
+
+  here's the brief for this project, get the details you need from this. We'll
+  start to build stuff out soon. As a practice, never assume anything. If you
+  don't know something ask me, when I ask about a new change interview me to
+  get the details you need. Try to only keep the details you need, don't add
+  unnecessary details or lengthen sentences unnecessarily
+
+● Got it — read the brief. Before we start building, a few things I'd need
+  decided since they shape the architecture:
+
+● User answered Claude's questions:
+  ⎿  · Who is "looked at" in the audit trail — do we need real clinician
+     login/auth, or is a fixed/selected clinician identity (no password) enough
+     for this exercise? → Mock identity (Recommended)
+     · Assessments start as data/assessments.jsonl. Where should the working
+     copy of the data (plus audit log, issued status, corrected summaries)
+     actually live? → Postgres (Recommended)
+     · What counts as an auditable event? The brief says "who looked at what,
+     when, and what changed." → Views + changes (Recommended)
+
+  Recalled 1 memory, wrote 3 memories (ctrl+o to expand)
+
+● Decisions locked in: mock identity for clinicians, Postgres as the working
+  store (jsonl loaded in on startup), audit log covers both views and changes.
+  Saved these so I won't re-ask later.
+
+  Ready when you are to start building — say the word and I'll scope the first
+  slice (queue → filter → open → issue).
+
+❯ can you keep the details in the repo itself too under agents folder
+
+  Listed 1 directory (ctrl+o to expand)
+
+● There's already an agent/decisions.md — let me check what's in it before
+  touching anything.
+
+  Read 1 file (ctrl+o to expand)
+
+● There's already a decision log with a defined format. I'll append an entry
+  matching that style rather than creating a separate file.
+
+● Update(agent/decisions.md)
+  ⎿  Added 27 lines
+      24  **Also:** `chmod +x verify.sh` — it wasn't executable in the ch
+          eckout, so `./verify.sh`
+      25  failed with "Permission denied". Left as an unstaged mode chang
+          e for the user to commit
+      26  or not.
+      27 +                                                               
+      28 +## 2026-09-23 — Architecture decisions for the report review se
+         +rvice                                                          
+      29 +                                                               
+      30 +Interviewed the user before implementation on three open questi
+         +ons from the brief:                                            
+      31 +                                                               
+      32 +**Auth:** mock identity only — clinician picked from a seed lis
+         +t, no login/password                                           
+      33 +flow. Real auth was out of scope for the 4-hour bar.           
+      34 +                                                               
+      35 +**Storage:** `data/assessments.jsonl` loads into Postgres on st
+         +artup; Postgres holds                                          
+      36 +the working copy, audit log, issued status, and corrected summa
+         +ries. Not flat-file                                            
+      37 +mutation — the db container is already in the harness and suppo
+         +rts queue                                                      
+      38 +filtering/audit querying properly.                             
+      39 +                                                               
+      40 +**Audit scope:** log both views (assessment opened) and changes
+         + (issue, summary                                               
+      41 +correction), not changes-only — required to satisfy the brief's
+         + "who looked at what,                                          
+      42 +when, and what changed."                                       
+      43 +                                                               
+      44 +**Scoring rules** (none of this is in `data/assessments.jsonl`,
+         + brief is the only                                             
+      45 +source):                                                       
+      46 +- Domain % = mean of `raw/max*100` across a domain's items.    
+      47 +- Bands: Minimal 0-39, Mild 40-54, Moderate 55-84, Substantial 
+         +85-100.                                                        
+      48 +- Review flag ON when: any domain bands Substantial, any item `
+         +completed: false`, or                                          
+      49 +  `summary` length < 200 chars.                                
+      50 +- Age = years/months at `assessed_at`, from `client.date_of_bir
+         +th`.                                                           
+      51 +- Percentages/bands/flag are calculated, not stored — recompute
+         +, don't cache as fixed.                                        
+      52 +- Issued reports are immutable except: summary typo corrections
+         + remain editable                                               
+      53 +  afterward (no mechanism for this exists yet — needs building)
+         +.                                                              
+
+● Appended to agent/decisions.md in the existing chronological-log format rather
+  than a new file. Not committing — that's your call.
+
+❯ can you break the brief down into small tasks for me and help me to pick the
+  most suitable one to start with
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Confirmed — everything is still a blank slate. Here's the breakdown, ordered
+  along the brief's own bar (queue → filter → open → issue, end to end, before
+  anything else):
+
+  Foundation (blocking everything)
+  1. Scoring/banding/flag/age logic — pure Python functions on a parsed
+     assessment record, no framework needed yet. Testable in isolation first
+     (pytest wired up here, per testing.md).
+  2. Load assessments.jsonl into Postgres on startup (schema + seed script) —
+     replaces the stdlib placeholder api with a real framework at the same time.
+
+  Narrow end-to-end path (the 4hr bar)
+  3. GET /assessments — queue endpoint, filterable by band/flag/clinician.
+  4. GET /assessments/:id — detail endpoint; write a "viewed" audit row.
+  5. POST /assessments/:id/issue — issue action; write a "changed" audit row;
+  enforce immutability after.
+  6. Web: queue list + filter controls, wired to real fetch (vitest wired up
+  here).
+  7. Web: detail view (client info, domains, summary).
+  8. Web: issue button → calls the endpoint, reflects issued state.
+
+  After the bar is met
+  9. PATCH /assessments/:id/summary — post-issue typo correction path
+  (explicitly called out as missing today).
+  10. Audit trail surfaced somewhere queryable (endpoint or view) — "show an
+  auditor who looked at what."
+  11. docker compose up + ./verify.sh polish, CORS check.
+
+  I'd start with #1 — the scoring logic. It's pure, has zero infra dependencies,
+  is required by every endpoint after it, and is exactly where TDD is cheapest
+  (testing.md wants a failing test before any implementation code anyway). Want
+  me to start there?
+
+❯ yes start with 1
+
+  Read 3 files (ctrl+o to expand)
+
+● One real ambiguity in the scoring rule before I write it: the brief says
+  domain % is "the mean of raw/max*100 across its items" but doesn't say what
+  happens to items where raw is null (not completed).
+
+● User answered Claude's questions:
+  ⎿  · How should an uncompleted item (raw: null) factor into its domain's
+     percentage? → I want to impute them but I need to understand more about the
+     dataset first - how manty values are missing etc
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Findings on the 100-sample dataset:
+
+  - 48 / 2229 items (2.2%) are null — genuinely sparse, evenly spread across all
+    five domains (1.8%–2.6% each).
+  - 69 assessments have zero missing items, 25 have exactly one, only 6 have 2+.
+  - 2 domain-instances have every item null (no raw data at all for that domain
+    on that assessment) — these can't be imputed from within the domain itself,
+    only from other assessments.
+  - raw: null and completed: false are perfectly consistent (0 mismatches) — no
+    messy data to clean.
+
+  Given how sparse this is, a few imputation approaches are viable:
+
+● User answered Claude's questions:
+  ⎿  · How should missing item values be imputed for the domain % calculation? →
+     Exclude from mean (Recommended)
+
+● One more edge case: those 2 domain-instances with zero completed items — mean
+  of raw/max over an empty set is undefined, so there's no percentage to band.
+
+● User answered Claude's questions:
+  ⎿  · When a domain has zero completed items, what should its percentage/band
+     show? → Null/"Not assessed" (Recommended)
+
+● Locked in: exclude nulls from the mean, empty domain → None (not assessed),
+  flag/age handling as specified. Now writing this test-first per the testing
+  rules — pytest wired up in this same commit.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(api/models.py)
+  ⎿  Wrote 38 lines to api/models.py
+       1 """Dataclasses for a parsed assessment record (data/assessments.
+         jsonl shape)."""
+       2
+       3 from __future__ import annotations
+       4
+       6 from datetime import date, datetime
+       7
+       8
+       9 @dataclass(frozen=True)
+      10 class Item:
+     … +29 lines (ctrl+o to expand)
+
+● Write(api/tests/test_scoring.py)
+  ⎿  Wrote 104 lines to api/tests/test_scoring.py
+       1 from datetime import date, datetime, timezone
+       2
+       3 from models import Assessment, Client, Domain, Item
+       4 from scoring import Band, age_at, band_for_percentage, domain_pe
+         rcentage, review_flag
+       6 CLIENT = Client(
+       7     date_of_birth=date(2014, 3, 2),
+       8     nhs_number="999 476 5919",
+       9     guardian_contact="j.okafor@example.com",
+      10 )
+     … +100 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Confirmed failing as expected. Now implementing the minimum to pass.
+● Write(api/scoring.py)
+  ⎿  Wrote 58 lines to api/scoring.py
+      1 """Domain scoring, banding, review flag, and age — none of this i
+        s in the
+      2 data file, it's the instrument definition from the brief."""
+      3
+      4 from __future__ import annotations
+      5
+      6 from datetime import date
+      7 from enum import Enum
+      8
+      9 from models import Assessment, Domain
+     … +55 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All 11 tests pass. Now wiring pytest into requirements.txt and updating the
+  testing doc per its own instruction to replace the placeholder note.
+
+● Update(api/requirements.txt)
+  ⎿  Added 1 line, removed 2 lines
+      1 -# Deliberately empty. Add whatever you want: fastapi, flask, dja
+        -ngo,                                                            
+      2 -# litestar, sqlalchemy, psycopg, pytest. Nothing here is a recom
+        -mendation.                                                      
+      1 +pytest                                                          
+
+● Update(agent/rules/testing.md)
+  ⎿  File not found
+
+  Read 1 file, listed 1 directory, ran 1 shell command (ctrl+o to expand)
+
+● The agent/ directory is gone entirely — including the decisions.md I edited
+  earlier this session. Let me check git status before touching anything
+  further.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Important: the repo's checked-out branch changed underneath me — I found it on
+  load-assessments-postgresql, not initial-claude-setup (which is where all the
+  CLAUDE.md/agent/rules setup happened). I did not run this checkout.
+  load-assessments-postgresql points at the very first commit, before agent/
+  existed, so agent/decisions.md and the rules disappeared from the working tree
+  — but nothing is lost, they're safe in commit history on
+  initial-claude-setup.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● This looks like it may have been done outside this session — perhaps in the
+  IDE, or another Claude Code window. A few things to flag:
+
+  - Nothing is lost. agent/decisions.md and the rules are safely committed on
+    initial-claude-setup (commit db4102b). They're just not present in this
+    branch's working tree.
+  - There's already a branch named load-assessments-postgresql, pushed to
+    origin, sitting at the very first commit — which happens to match "Task 2"
+    from the breakdown we discussed (load assessments.jsonl into Postgres). That
+    suggests someone deliberately created it to start that work.
+  - My uncommitted api/models.py, api/scoring.py, api/tests/ (the scoring logic
+    we just built and tested) are sitting fine on disk in this branch's working
+    tree, just not yet committed here.
+
+● User answered Claude's questions:
+  ⎿  · How do you want to proceed given the branch switched to
+     load-assessments-postgresql (missing agent/ setup)? → Stay on
+     load-assessments-postgresql
+
+  Merged initial-claude-setup (ctrl+o to expand)
+
+● Fast-forward merge worked cleanly. Now let me update testing.md with the
+  pytest command, as planned.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(agent/rules/testing.md)
+  ⎿  Added 6 lines, removed 7 lines
+       4    pass it, then refactor. Do not write implementation code that
+           has no failing test behind it.
+       5  - Every domain-logic path (scoring, aggregation, validation of 
+          `data/assessments.jsonl` records,
+       6    API responses) must be covered by a test before it's consider
+          ed done.
+       7 -- No test runner is wired up yet. The first task that touches `
+         -api/` or `web/` should wire one                                
+       8 -  up (e.g. pytest for the api, vitest for the web) as part of i
+         -ts first commit, not as an                                     
+       9 -  afterthought.                                                
+      10 -- Once wired up, replace this note with the actual commands, e.
+         -g.:                                                            
+      11 -  - api: `docker compose exec api pytest`                      
+      12 -  - web: `docker compose exec web npm test`                    
+       7 +- api: `docker compose exec api pytest` (or `cd api && python3 
+         +-m pytest tests/` outside                                      
+       8 +  Docker). Wired up alongside the scoring module — pytest in `r
+         +equirements.txt`, tests                                        
+       9 +  under `api/tests/`.                                          
+      10 +- web: not wired up yet. The first task that touches `web/` sho
+         +uld add vitest as part of                                      
+      11 +  its first commit, not as an afterthought.                    
+      12  - A single command should be able to run the whole suite; keep 
+          `verify.sh` and this file
+      14 -  pointing at it.                                              
+      13 +  pointing at it once both sides are wired up.                 
+
+● Now appending the scoring-logic decisions to agent/decisions.md, matching its
+  existing format.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(agent/decisions.md)
+  ⎿  Added 16 lines
+      51  - Percentages/bands/flag are calculated, not stored — recompute
+          , don't cache as fixed.
+      52  - Issued reports are immutable except: summary typo corrections
+           remain editable
+      53    afterward (no mechanism for this exists yet — needs building)
+          .
+      54 +                                                               
+      55 +## 2026-09-23 — Scoring module: null-item handling             
+      56 +                                                               
+      57 +The brief didn't say what happens to `raw: null` items in the d
+         +omain % mean, so checked                                       
+      58 +the dataset before deciding: 48/2229 items (2.2%) are null, spr
+         +ead evenly across all                                          
+      59 +five domains, and 2 domain-instances have every item null.     
+      60 +                                                               
+      61 +**Decision:** exclude uncompleted/null items from the mean enti
+         +rely (don't impute,                                            
+      62 +don't count as 0). The review flag already surfaces incompleten
+         +ess separately, so the                                         
+      63 +percentage doesn't need to double as an incompleteness penalty.
+         + A domain with zero                                            
+      64 +completed items returns `None` (not assessed) rather than a fab
+         +ricated 0%/Minimal band.                                       
+      65 +                                                               
+      66 +**Implemented:** `api/scoring.py` (`domain_percentage`, `band_f
+         +or_percentage`,                                                
+      67 +`review_flag`, `age_at`) and `api/models.py` (`Item`, `Domain`,
+         + `Client`, `Assessment`                                        
+      68 +dataclasses), test-first in `api/tests/test_scoring.py`. Pytest
+         + wired up as the api test                                      
+      69 +runner (`requirements.txt`, `agent/rules/testing.md` updated wi
+         +th the run command).                                           
+
+● Let me also update the memory files to reflect the finalized details, then
+  confirm final test run.
+
+  Ran 1 shell command, wrote 1 memory (ctrl+o to expand)
+
+● Tests still pass after the merge. Summary of where things stand:
+
+  - Branch fixed: load-assessments-postgresql now has the agent/ setup merged in
+    (fast-forward, no conflicts).
+  - Task 1 done: api/models.py (dataclasses) + api/scoring.py (domain %, bands,
+    review flag, age) with 11 passing tests in api/tests/test_scoring.py,
+    TDD-first.
+  - Two real ambiguities in the brief resolved by checking the actual data
+    first, and logged in agent/decisions.md: null items excluded from the
+    domain-% mean; a domain with zero completed items reports as "not assessed"
+    rather than a fabricated score.
+  - Nothing committed yet — all changes are sitting in the working tree for you
+    to review.
+
+  Next up per the breakdown is Task 2 (load assessments.jsonl into Postgres,
+  matching this branch's name) — want me to continue there, or do you want to
+  review/commit what's here first?
+
+❯ <ide_opened_file>The user opened the file
+  /home/sbenny1230/GitHub/neurotype-take-home-exercise/.env.example in the IDE.
+  This may or may not be related to the current task.</ide_opened_file>
+
+❯ for the python api:
+
+  - can you keep source code inside an src folder
+  - start creating a folder for each feature or responsbility which would have
+  a service.py, model.py and routes.py file
+  - have a utils folder for shared utility modules
+  - business logic should be kept out of main.py and it should be as thin as
+  possible, only start the app
+  - Use Configuration Files Properly
+  - tests should mirror the app structure and be small and focused, tests
+  should be able to run automatically
+  - add a README.md file which gives an overview of the api folder, how to set
+  it up and use it, how to run the tests
+
+● Before restructuring, one decision this locks in: a routes.py-per-feature
+  layout implies a real web framework (main.py currently is stdlib-only).
+
+● User answered Claude's questions:
+  ⎿  · Which framework for the api, since it drives how routes.py/main.py get
+     structured? → FastAPI (Recommended)
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Write(api/src/__init__.py)
+  ⎿  Wrote 1 line to api/src/__init__.py
+      1 (No content)
+
+● Write(api/src/utils/__init__.py)
+  ⎿  Wrote 1 line to api/src/utils/__init__.py
+      1 (No content)
+
+● Write(api/src/config.py)
+  ⎿  Wrote 24 lines to api/src/config.py
+      1 """Single place that reads environment variables. Nothing else in
+         src/ should
+      2 call os.environ directly."""
+      3
+      4 from __future__ import annotations
+      5
+      6 import os
+      7 from dataclasses import dataclass
+      8 from functools import lru_cache
+      9
+     … +17 lines (ctrl+o to expand)
+● Write(api/src/health/__init__.py)
+  ⎿  Wrote 1 line to api/src/health/__init__.py
+      1 (No content)
+
+● Write(api/src/health/routes.py)
+  ⎿  Wrote 8 lines to api/src/health/routes.py
+      1 from fastapi import APIRouter
+      2
+      3 router = APIRouter()
+      4
+      5
+      6 @router.get("/health")
+      7 def health() -> dict[str, str]:
+      8     return {"status": "ok"}
+
+● Write(api/src/assessments/__init__.py)
+  ⎿  Wrote 1 line to api/src/assessments/__init__.py
+      1 (No content)
+
+● Now moving model.py/service.py content into the assessments feature folder.
+
+● Write(api/src/assessments/model.py)
+  ⎿  Wrote 38 lines to api/src/assessments/model.py
+       1 """Dataclasses for a parsed assessment record (data/assessments.
+         jsonl shape)."""
+       2
+       3 from __future__ import annotations
+       4
+       6 from datetime import date, datetime
+       7
+       8
+       9 @dataclass(frozen=True)
+      10 class Item:
+     … +29 lines (ctrl+o to expand)
+
+● Write(api/src/assessments/service.py)
+  ⎿  Wrote 58 lines to api/src/assessments/service.py
+      1 """Domain scoring, banding, review flag, and age — none of this i
+        s in the
+      2 data file, it's the instrument definition from the brief."""
+      3
+      4 from __future__ import annotations
+      5
+      6 from datetime import date
+      7 from enum import Enum
+      8
+      9 from src.assessments.model import Assessment, Domain
+     … +55 lines (ctrl+o to expand)
+
+● Now the thin main.py:
+
+● Write(api/src/main.py)
+  ⎿  Wrote 19 lines to api/src/main.py
+       1 """App entrypoint. Only wires the app together — routes and logi
+         c live in
+       2 their feature folders."""
+       3
+       4 from fastapi import FastAPI
+       6
+       7 from src.config import get_settings
+       8 from src.health.routes import router as health_router
+       9
+      10 settings = get_settings()
+     … +10 lines (ctrl+o to expand)
+
+● Now the mirrored tests:
+
+● Write(api/tests/__init__.py)
+  ⎿  Wrote 1 line to api/tests/__init__.py
+      1 (No content)
+
+● Write(api/tests/health/__init__.py)
+  ⎿  Wrote 1 line to api/tests/health/__init__.py
+      1 (No content)
+
+● Write(api/tests/health/test_routes.py)
+  ⎿  Wrote 11 lines to api/tests/health/test_routes.py
+       1 from fastapi.testclient import TestClient
+       2
+       3 from src.main import app
+       4
+       5 client = TestClient(app)
+       6
+       7
+       8 def test_health_returns_200_ok():
+       9     response = client.get("/health")
+      10     assert response.status_code == 200
+     … +1 line (ctrl+o to expand)
+
+● Write(api/tests/assessments/__init__.py)
+  ⎿  Wrote 1 line to api/tests/assessments/__init__.py
+      1 (No content)
+
+● Write(api/tests/assessments/test_service.py)
+  ⎿  Wrote 104 lines to api/tests/assessments/test_service.py
+       1 from datetime import date, datetime, timezone
+       2
+       3 from src.assessments.model import Assessment, Client, Domain, It
+       4 from src.assessments.service import Band, age_at, band_for_perce
+         ntage, domain_percentage, review_flag
+       5
+       6 CLIENT = Client(
+       8     nhs_number="999 476 5919",
+       9     guardian_contact="j.okafor@example.com",
+      10 )
+     … +100 lines (ctrl+o to expand)
+
+● Now clean up the old flat files and update requirements.txt / Dockerfile.
+
+  Read 2 files, ran 1 shell command (ctrl+o to expand)
+
+● Update(.gitignore)
+  ⎿  Added 1 line
+      3  *.tsbuildinfo
+      4  __pycache__/
+      5  *.pyc
+      6 +.pytest_cache/                                                  
+      7  .env
+
+● Update(api/requirements.txt)
+  ⎿  Added 3 lines
+      1 +fastapi                                                         
+      2 +uvicorn[standard]                                               
+      3 +httpx                                                           
+      4  pytest
+
+● Update(api/Dockerfile)
+  ⎿  Added 1 line, removed 1 line
+      4  RUN pip install --no-cache-dir -r requirements.txt
+      5  COPY . .
+      6  EXPOSE 8000
+      7 -CMD ["python", "main.py"]                                       
+      7 +CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "
+        +8000"]                                                          
+
+● Now installing the new deps locally and running the full suite to confirm
+  everything works before writing the README.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All 12 tests pass. Quick sanity check that the app actually boots under
+  uvicorn.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Works end to end. Now the README.
+
+● Write(api/README.md)
+  ⎿  Wrote 65 lines to api/README.md
+       1 # api
+       2
+       3 FastAPI backend for the assessment review service.
+       4
+       5 ## Structure
+       7 ```
+       8 api/
+       9   src/
+      10     main.py            # entrypoint: builds the FastAPI app, wir
+         es CORS, includes routers
+     … +66 lines (ctrl+o to expand)
+  Read 1 file (ctrl+o to expand)
+
+● Update(agent/decisions.md)
+  ⎿  Added 25 lines
+      67  `review_flag`, `age_at`) and `api/models.py` (`Item`, `Domain`,
+           `Client`, `Assessment`
+      68  dataclasses), test-first in `api/tests/test_scoring.py`. Pytest
+           wired up as the api test
+      69  runner (`requirements.txt`, `agent/rules/testing.md` updated wi
+          th the run command).
+      70 +                                                               
+      71 +## 2026-09-23 — Restructured api into feature folders, picked F
+         +astAPI                                                         
+      72 +                                                               
+      73 +Flat `api/main.py` (stdlib), `api/models.py`, `api/scoring.py` 
+         +reorganized per the                                            
+      74 +user's requested layout: `src/<feature>/{model,service,routes}.
+         +py`, a `utils/` folder                                         
+      75 +for shared helpers, config centralized in `src/config.py` (sing
+         +le place that reads                                            
+      76 +env vars), `main.py` reduced to just building the app and regis
+         +tering routers, and                                            
+      77 +`tests/` mirroring `src/`.                                     
+      78 +                                                               
+      79 +**Framework:** FastAPI, chosen over Flask — pairs with the pyth
+         +on.md rule to use                                              
+      80 +dataclasses/pydantic for structured data, gives type-hinted rou
+         +tes and request                                                
+      81 +validation for free, and `APIRouter` per feature keeps `main.py
+         +` thin without extra                                           
+      82 +plumbing.                                                      
+      83 +                                                               
+      84 +**Layout:**                                                    
+      85 +- `src/health/routes.py` — `GET /health`, moved off the stdlib 
+         +handler.                                                       
+      86 +- `src/assessments/{model,service}.py` — the scoring module fro
+         +m the previous entry,                                          
+      87 +  moved as-is. No `routes.py` yet since no assessments endpoint
+         +s exist — added when                                           
+      88 +  that task lands, not scaffolded empty ahead of time.         
+      89 +- `src/utils/` — created empty, ready for the first shared help
+         +er that isn't                                                  
+      90 +  feature-specific.                                            
+      91 +                                                               
+      92 +Dockerfile `CMD` now runs `uvicorn src.main:app`; `requirements
+         +.txt` gained `fastapi`,                                        
+      93 +`uvicorn[standard]`, `httpx` (FastAPI's `TestClient`). Verified
+         +: full test suite green,                                       
+      94 +and `uvicorn src.main:app` boots and serves `GET /health` → 200
+         +.                                                              
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Restructured and verified (12 tests pass, uvicorn boots, /health returns 200).
+  Summary:
+
+  - api/src/ now holds main.py (thin — just app + CORS + router registration),
+    config.py (single env-var read point), utils/ (empty, ready for the first
+    shared helper), health/routes.py, and assessments/{model,service}.py (the
+    scoring logic moved as-is).
+  - api/tests/ mirrors that layout.
+  - Switched from the stdlib placeholder to FastAPI (asked you first since it
+    drove the whole layout) — added fastapi, uvicorn[standard], httpx to
+    requirements.txt, updated the Dockerfile CMD.
+  - No assessments/routes.py yet — skipped scaffolding an empty one since no
+    endpoints exist; it lands when that task does.
+  - Added api/README.md covering structure, setup, and how to run tests.
+  - Logged the restructure and framework choice in agent/decisions.md.
+
+  Nothing committed — all in the working tree for review. Next up per the
+  earlier breakdown is loading assessments.jsonl into Postgres (matches this
+  branch's name) — want me to continue there?
+
+❯ <ide_opened_file>The user opened the file /home/sbenny1230/GitHub/neurotype-t
+  ake-home-exercise/api/tests/assessments/__init__.py in the IDE. This may or
+  may not be related to the current task.</ide_opened_file>
+
+❯ yes continue
+
+● Before designing the schema, one real tradeoff: the brief notes the live
+  service "holds years of them and takes on more every week," but also says
+  percentages/bands/flag are "calculated values... subject to change" (i.e., not
+  fixed).
+
+● User answered Claude's questions:
+  ⎿  · Should percentage/band/review-flag be stored as columns (computed at load
+     time, filterable/sortable in SQL), or only stored as raw domain data and
+     recomputed in application code whenever the queue is read? → Computed
+     columns, recomputed on load (Recommended)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Now writing the DB helper, model parser, repository, and wiring startup via
+  FastAPI's lifespan.
+
+● Write(api/src/utils/db.py)
+  ⎿  Wrote 13 lines to api/src/utils/db.py
+       1 """Postgres connection helper. Shared by any feature that needs
+         the database."""
+       2
+       3 from __future__ import annotations
+       4
+       6
+       7 from src.config import get_settings
+       8
+       9
+      10 def get_connection() -> psycopg.Connection:
+     … +6 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/src/assessments/model.py)
+  ⎿  Added 23 lines
+      36      clinician_id: str
+      37      domains: list[Domain]
+      38      summary: str
+      39 +                                                               
+      40 +                                                               
+      41 +def parse_assessment(data: dict) -> Assessment:                
+      42 +    """Parse one decoded JSON object from data/assessments.json
+         +l."""                                                          
+      43 +    client_data = data["client"]                               
+      44 +    client = Client(                                           
+      45 +        date_of_birth=date.fromisoformat(client_data["date_of_b
+         +irth"]),                                                       
+      46 +        nhs_number=client_data["nhs_number"],                  
+      47 +        guardian_contact=client_data["guardian_contact"],      
+      48 +        safeguarding_notes=client_data.get("safeguarding_notes"
+         +),                                                             
+      49 +    )                                                          
+      50 +    domains = [                                                
+      51 +        Domain(domain=d["domain"], items=[Item(**item) for item
+         + in d["items"]])                                               
+      52 +        for d in data["domains"]                               
+      53 +    ]                                                          
+      54 +    return Assessment(                                         
+      55 +        assessment_id=data["assessment_id"],                   
+      56 +        client=client,                                         
+      57 +        assessed_at=datetime.fromisoformat(data["assessed_at"])
+         +,                                                              
+      58 +        clinician_id=data["clinician_id"],                     
+      59 +        domains=domains,                                       
+      60 +        summary=data["summary"],                               
+      61 +    )                                                          
+
+● Now the repository module (schema + idempotent loader):
+
+● Write(api/src/assessments/repository.py)
+  ⎿  Wrote 107 lines to api/src/assessments/repository.py
+      1 """Postgres access for assessments: schema, and loading data/asse
+      2
+      3 domain_scores/review_flag are a cache of scoring.py's output, com
+        puted at load
+        ring every
+      5 row in Python on every request. Re-running load_jsonl recomputes
+      6 upserts them, so a scoring-logic change is picked up by reloading
+        .
+      7 """
+      9 from __future__ import annotations
+     … +111 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(api/src/main.py)
+  ⎿  Added 15 lines, removed 1 line
+       1  """App entrypoint. Only wires the app together — routes and log
+          ic live in
+       2  their feature folders."""
+       3  
+       4 +from contextlib import asynccontextmanager                     
+       5 +                                                               
+       6  from fastapi import FastAPI
+       7  from fastapi.middleware.cors import CORSMiddleware
+       8  
+       9 +from src.assessments.repository import create_schema, load_json
+         +l                                                              
+      10  from src.config import get_settings
+      11  from src.health.routes import router as health_router
+      12 +from src.utils.db import get_connection                        
+      13  
+      14  settings = get_settings()
+      15  
+      12 -app = FastAPI()                                                
+      16 +                                                               
+      17 +@asynccontextmanager                                           
+      18 +async def lifespan(app: FastAPI):                              
+      19 +    with get_connection() as conn:                             
+      20 +        create_schema(conn)                                    
+      21 +        count = load_jsonl(conn, settings.data_file)           
+      22 +    print(f"[api] loaded {count} assessments from {settings.dat
+         +a_file}", flush=True)                                          
+      23 +    yield                                                      
+      24 +                                                               
+      25 +                                                               
+      26 +app = FastAPI(lifespan=lifespan)                               
+      27  app.add_middleware(
+      28      CORSMiddleware,
+      29      allow_origins=[settings.web_origin],
+
+● Update(api/requirements.txt)
+  ⎿  Added 1 line
+      1  fastapi
+      2  uvicorn[standard]
+      3  httpx
+      4 +psycopg[binary]                                                 
+      5  pytest
+
+● Now let's write tests. First check whether a Postgres instance is reachable
+  locally to run real integration tests against.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Good, container built and started. Let's verify it boots correctly and loads
+  the data, then hit /health.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All 100 assessments loaded on startup. Let's inspect the table to sanity-check
+  the computed scoring cache before writing tests.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Real data loading correctly, including the null/"not assessed" domain case
+  (a-00017's sensory_processing). Now writing the mirrored tests for
+  repository.py — a real integration test against the Postgres container, since
+  mocking psycopg here would be low-value.
+
+● Write(api/tests/assessments/test_repository.py)
+  ⎿  Wrote 99 lines to api/tests/assessments/test_repository.py
+       1 """Integration tests against a real Postgres — DATABASE_URL must
+          point at one
+       2 (docker-compose.yml provides it inside the api container)."""
+       3
+       4 import json
+       6 import pytest
+       7
+       8 from src.assessments.repository import create_schema, load_jsonl
+       9 from src.config import get_settings
+      10 from src.utils.db import get_connection
+     … +96 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All 15 tests pass (12 prior + 3 new repository integration tests) against a
+  real Postgres. Let's run ./verify.sh for the full contract check, then update
+  docs.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Full contract still satisfied. Now updating docs: README, decisions log, and
+  the testing rule (which prescribes the docker-based command already correct).
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/README.md)  ⎿  Added 17 lines, removed 1 line
+      25  
+      26  Current features:
+      27  - `health` — liveness check (`GET /health`)
+      28 -- `assessments` — scoring/banding/review-flag domain logic (no 
+         -routes yet)                                                    
+      28 +- `assessments` — scoring/banding/review-flag domain logic, and
+         + a `repository.py`                                             
+      29 +  that creates the Postgres schema and loads `data/assessments.
+         +jsonl` on startup                                              
+      30 +  (no HTTP routes yet)                                         
+      31  
+      32 +## Data                                                        
+      33 +                                                               
+      34 +`data/assessments.jsonl` loads into the `assessments` table on 
+         +every app startup                                              
+      35 +(`src/main.py`'s lifespan hook, via `src/assessments/repository
+         +.py`). The load is                                             
+      36 +idempotent — an `INSERT ... ON CONFLICT (assessment_id) DO UPDA
+         +TE`, keyed on                                                  
+      37 +`assessment_id` — so restarting the app re-syncs from the file 
+         +rather than                                                    
+      38 +duplicating rows.                                              
+      39 +                                                               
+      40 +Alongside the raw `domains` JSONB, each row also gets `domain_s
+         +cores` (per-domain                                             
+      41 +percentage/band) and `review_flag`, computed once at load time 
+         +from                                                           
+      42 +`src/assessments/service.py`. These are a cache for SQL-side fi
+         +ltering/sorting once                                           
+      43 +the queue exists, not a second source of truth — if the scoring
+         + rules change,                                                 
+      44 +restarting the app (or re-running the loader) recomputes them f
+         +rom the raw domains.                                           
+      45 +                                                               
+      46  ## Setup
+      47  
+      48  Via Docker (from the repo root):
+
+● Update(api/README.md)
+  ⎿  Added 8 lines, removed 8 lines
+      65  
+      66  ## Tests
+      67  
+      68 -```bash                                                        
+      69 -cd api                                                         
+      70 -python3 -m pytest tests/                                       
+      71 -```                                                            
+      68 +`tests/assessments/test_repository.py` runs against a real Post
+         +gres (`DATABASE_URL`),                                         
+      69 +so run tests inside the container/compose network, not on the b
+         +are host:                                                      
+      70  
+      73 -Or inside the running container:                               
+      74 -                                                               
+      71  ```bash
+      72 +docker compose up -d db api                                    
+      73  docker compose exec api pytest
+      74  ```
+      75  
+      76 +Everything else (`test_service.py`, `test_routes.py`) has no ex
+         +ternal dependency and                                          
+      77 +also runs standalone with `cd api && python3 -m pytest tests/` 
+         +if you only touched                                            
+      78 +pure logic.                                                    
+      79 +                                                               
+      80  Tests mirror `src/`'s structure — `tests/assessments/test_servi
+          ce.py` covers
+      80 -`src/assessments/service.py`, and so on. Everything runs with p
+         -lain `pytest`, no                                              
+      81 -manual setup required.                                         
+      81 +`src/assessments/service.py`, and so on.                       
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(agent/rules/testing.md)
+  ⎿  Added 4 lines, removed 3 lines
+       4    pass it, then refactor. Do not write implementation code that
+           has no failing test behind it.
+       5  - Every domain-logic path (scoring, aggregation, validation of 
+          `data/assessments.jsonl` records,
+       6    API responses) must be covered by a test before it's consider
+          ed done.
+       7 -- api: `docker compose exec api pytest` (or `cd api && python3 
+         --m pytest tests/` outside                                      
+       8 -  Docker). Wired up alongside the scoring module — pytest in `r
+         -equirements.txt`, tests                                        
+       9 -  under `api/tests/`.                                          
+       7 +- api: `docker compose exec api pytest` (needs `db` up too — so
+         +me tests hit a real                                            
+       8 +  Postgres). Pure-logic tests also run standalone with         
+       9 +  `cd api && python3 -m pytest tests/`. Pytest wired up alongsi
+         +de the scoring module;                                         
+      10 +  tests under `api/tests/`, mirroring `api/src/`.              
+      11  - web: not wired up yet. The first task that touches `web/` sho
+          uld add vitest as part of
+      12    its first commit, not as an afterthought.
+      13  - A single command should be able to run the whole suite; keep 
+          `verify.sh` and this file
+
+● Now logging the decision and implementation in agent/decisions.md.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(agent/decisions.md)
+  ⎿  Added 33 lines
+       92  Dockerfile `CMD` now runs `uvicorn src.main:app`; `requirement
+           s.txt` gained `fastapi`,
+       93  `uvicorn[standard]`, `httpx` (FastAPI's `TestClient`). Verifie
+           d: full test suite green,
+       94  and `uvicorn src.main:app` boots and serves `GET /health` → 20
+           0.
+       95 +                                                              
+       96 +## 2026-09-23 — Load assessments.jsonl into Postgres on startu
+          +p                                                             
+       97 +                                                              
+       98 +**Decision:** `domain_scores` (percentage + band per domain) a
+          +nd `review_flag` are                                          
+       99 +stored as columns, computed at load time from `src/assessments
+          +/service.py`, rather                                          
+      100 +than only recomputed in Python at read time. Asked the user fi
+          +rst — the brief flags                                         
+      101 +that the live service "holds years of them and takes on more e
+          +very week," so queue                                          
+      102 +filtering/sorting needs to happen in SQL, not by scoring every
+          + row in Python on every                                       
+      103 +request. They're a cache of the raw `domains` JSONB (the actua
+          +l source of truth), not                                       
+      104 +a second source of truth — reloading recomputes them if the sc
+          +oring rules change.                                           
+      105 +                                                              
+      106 +**Implemented:**                                              
+      107 +- `src/utils/db.py` — `get_connection()`, one psycopg connecti
+          +on per call (ponytail:                                        
+      108 +  no pooling yet, add `psycopg_pool` if concurrent load become
+          +s an issue).                                                  
+      109 +- `src/assessments/model.py` — added `parse_assessment(dict) -
+          +> Assessment`, parsing                                        
+      110 +  one decoded line of `assessments.jsonl`.                    
+      111 +- `src/assessments/repository.py` — `create_schema` (idempoten
+          +t `CREATE TABLE IF NOT                                        
+      112 +  EXISTS assessments`, one row per assessment: client/PII fiel
+          +ds, `assessed_at`,                                            
+      113 +  `clinician_id`, raw `domains` JSONB, `summary`, `domain_scor
+          +es` JSONB,                                                    
+      114 +  `review_flag`), `load_jsonl` (upserts every line via `INSERT
+          + ... ON CONFLICT                                              
+      115 +  (assessment_id) DO UPDATE`, so reloading re-syncs instead of
+          + duplicating).                                                
+      116 +- `src/main.py` — FastAPI `lifespan` hook runs `create_schema`
+          + + `load_jsonl` against                                       
+      117 +  `DATA_FILE` on every startup.                               
+      118 +                                                              
+      119 +No `issued_at` / issue-state column yet — that's the issue end
+          +point's concern, added                                        
+      120 +when that task lands rather than scaffolded ahead of time.    
+      121 +                                                              
+      122 +**Verified:** `docker compose up --build api` logs `loaded 100
+          + assessments`; spot-checked                                   
+      123 +the table in psql (correct bands/percentages, including the tw
+          +o domains with zero                                           
+      124 +completed items showing `band: null`); `docker compose exec ap
+          +i pytest` — 15 passed,                                        
+      125 +including new Postgres-integration tests in `tests/assessments
+          +/test_repository.py`                                          
+      126 +(insert-with-computed-scoring, idempotent reload, upsert-on-ch
+          +anged-field); full                                            
+      127 +`./verify.sh` contract still green.                           
+
+● Updating memory to reflect the finalized storage decision, then a final status
+  check.
+
+  Ran 1 shell command, recalled 1 memory, wrote 1 memory (ctrl+o to expand)
+
+● Task 2 done. Summary:
+
+  - data/assessments.jsonl now loads into Postgres automatically on every app
+    startup (src/main.py's lifespan hook), idempotently — upsert keyed on
+    assessment_id, so restarts re-sync rather than duplicate.
+  - domain_scores (per-domain %/band) and review_flag are computed once at load
+    time and stored as columns, per your call — a cache of the raw domains
+    JSONB, not a second source of truth, so SQL can filter/sort the queue
+    without rescoring every row.
+  - Verified with a real container: docker compose up --build api → loaded 100
+    assessments, spot-checked in psql (correct bands, including the two "not
+    assessed" nulls), and 15/15 tests pass via docker compose exec api pytest,
+    including new integration tests against real Postgres.
+  - Full ./verify.sh contract still green.
+  - Decisions and the new run/test instructions logged in agent/decisions.md,
+    agent/rules/testing.md, api/README.md, and memory.
+
+  Nothing committed. Next up per the breakdown: GET /assessments (the queue
+  endpoint) — but that will need a decision on what "filter by how an assessment
+  scored" means for an assessment with 5 separate domain bands. Want me to
+  continue there?
+
+❯ <ide_opened_file>The user opened the file
+  /home/sbenny1230/GitHub/neurotype-take-home-exercise/api/src/main.py in the
+  IDE. This may or may not be related to the current task.</ide_opened_file>
+
+❯ can I update verify.sh to include my tests too as a check?
+
+  Read 1 file (ctrl+o to expand)
+
+● Good idea — agent/rules/testing.md already says verify.sh should end up
+  running the whole suite. I'll add an api pytest step, gated behind the
+  existing checks (only runs if the containers are actually up), that fails the
+  script on a real test failure rather than just warning.
+
+● Update(verify.sh)
+  ⎿  Added 16 lines
+      48    echo "SKIPPED"
+      49  fi
+      50  
+      51 +printf '%-38s' "api  pytest"                                   
+      52 +if [ "$fail" -eq 0 ]; then                                     
+      53 +  log=$(mktemp)                                                
+      54 +  if docker compose exec -T api pytest -q >"$log" 2>&1; then   
+      55 +    echo "OK"                                                  
+      56 +  else                                                         
+      57 +    echo "FAILED"                                              
+      58 +    fail=1                                                     
+      59 +    echo "---- api pytest output ----"                         
+      60 +    cat "$log"                                                 
+      61 +  fi                                                           
+      62 +  rm -f "$log"                                                 
+      63 +else                                                           
+      64 +  echo "SKIPPED"                                               
+      65 +fi                                                             
+      66 +                                                               
+      67  echo
+      68  if [ "$fail" -ne 0 ]; then
+      69    echo "Something is not up. Check 'docker compose logs'."
+
+● Now let's confirm it actually works end to end.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Let me quickly verify the failure path actually works (fails the script and
+  shows output) before calling it done.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Fails correctly, exits non-zero, shows the pytest output. Confirmed clean
+  again:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● verify.sh now runs docker compose exec api pytest as a fourth check — it only
+  runs once the earlier checks pass, and a real test failure fails the whole
+  script (exit 1) with the pytest output printed, unlike the CORS check which
+  only warns.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Not committed — that's your call. Ready to continue with the queue endpoint
+  whenever you are.
+
+❯ can you split that script out into smaller ones so it doesn't become too big,
+  also move it to a scripts folder maybe
+
+● I'll keep ./verify.sh at the root as a thin entrypoint — it's the documented
+  contract command in CLAUDE.md and the brief — and move the actual check logic
+  into small, sourced files under scripts/checks/.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(scripts/checks/lib.sh)
+  ⎿  Wrote 26 lines to scripts/checks/lib.sh
+      1 # Shared state and helpers for verify.sh's checks. Sourced, not e
+        xecuted
+      2 # directly.
+      3
+      4 WAIT="${WAIT:-90}"
+      5 API="${API:-http://localhost:8000}"
+      6 WEB="${WEB:-http://localhost:5173}"
+      7
+      8 fail=0
+      9 warn=0
+     … +17 lines (ctrl+o to expand)
+
+● Write(scripts/checks/contract.sh)
+  ⎿  Wrote 21 lines to scripts/checks/contract.sh
+       1 # The three-line contract from the brief, plus the CORS check th
+       2 # the most common way a submission passing the checks above stil
+         l looks
+          CORS
+       4 # headers the browser blocks every call and the page renders wit
+       5 # Warns rather than fails since it isn't part of the three-line
+         contract.
+       7 check "api  GET /health" "$API/health"
+       8 check "web  GET /" "$WEB"
+      10 printf '%-38s' "cors $WEB -> api"
+     … +20 lines (ctrl+o to expand)
+
+● Write(scripts/checks/api-tests.sh)
+  ⎿  Wrote 18 lines to scripts/checks/api-tests.sh
+       1 # Runs the api test suite inside the running container. Skipped
+         if the
+       2 # contract checks above already failed, since there's nothing to
+       3
+       4 printf '%-38s' "api  pytest"
+       5 if [ "$fail" -eq 0 ]; then
+       6   log=$(mktemp)
+       8     echo "OK"
+       9   else
+      10     echo "FAILED"
+     … +10 lines (ctrl+o to expand)
+
+● Now the thin root entrypoint that sources these in order:
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(verify.sh)  ⎿  Added 7 lines, removed 58 lines
+       2  # Checks the run contract. Start the stack first with `docker c
+          ompose up`,
+       3  # then run this. It waits up to WAIT seconds for each service, 
+          because a cold
+       4  # start has to build images and boot a dev server.
+       5 +#                                                              
+       6 +# Each check lives in scripts/checks/, sourced in order so they
+         + share the                                                     
+       7 +# fail/warn state and the check() helper.                      
+       8  set -u
+       9  
+       7 -WAIT="${WAIT:-90}"                                             
+       8 -API="${API:-http://localhost:8000}"                            
+       9 -WEB="${WEB:-http://localhost:5173}"                            
+      10 +dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"            
+      11  
+      11 -fail=0                                                         
+      12 -warn=0                                                         
+      12 +. "$dir/scripts/checks/lib.sh"                                 
+      13 +. "$dir/scripts/checks/contract.sh"                            
+      14 +. "$dir/scripts/checks/api-tests.sh"                           
+      15  
+      14 -check() {                                                      
+      15 -  printf '%-38s' "$1"                                          
+      16 -  local deadline=$((SECONDS + WAIT))                           
+      17 -  while :; do                                                  
+      18 -    if curl -fsS --max-time 5 "$2" >/dev/null 2>&1; then       
+      19 -      echo "OK"                                                
+      20 -      return 0                                                 
+      21 -    fi                                                         
+      22 -    if [ "$SECONDS" -ge "$deadline" ]; then                    
+      23 -      echo "FAILED"                                            
+      24 -      fail=1                                                   
+      25 -      return 1                                                 
+      26 -    fi                                                         
+      27 -    sleep 2                                                    
+      28 -  done                                                         
+      29 -}                                                              
+      30 -                                                               
+      31 -check "api  GET /health" "$API/health"                         
+      32 -check "web  GET /" "$WEB"                                      
+      33 -                                                               
+      34 -# Not part of the three-line contract, so this warns rather tha
+         -n fails. The web                                               
+      35 -# app is served from a different origin to the api, so without 
+         -CORS the browser                                               
+      36 -# blocks every call and the page renders with no data. It is th
+         -e most common way                                              
+      37 -# a submission that passes the checks above still looks broken 
+         -when opened.                                                   
+      38 -printf '%-38s' "cors $WEB -> api"                              
+      39 -if [ "$fail" -eq 0 ]; then                                     
+      40 -  allow=$(curl -fsS --max-time 5 -D- -o /dev/null -H "Origin: $
+         -WEB" "$API/health" 2>/dev/null \                               
+      41 -          | tr -d '\r' | awk -F': ' 'tolower($1)=="access-contr
+         -ol-allow-origin"{print $2}')                                   
+      42 -  case "$allow" in                                             
+      43 -    "$WEB"|'*') echo "OK" ;;                                   
+      44 -    "")         echo "WARNING  no Access-Control-Allow-Origin h
+         -eader"; warn=1 ;;                                              
+      45 -    *)          echo "WARNING  allows '$allow', not '$WEB'"; wa
+         -rn=1 ;;                                                        
+      46 -  esac                                                         
+      47 -else                                                           
+      48 -  echo "SKIPPED"                                               
+      49 -fi                                                             
+      50 -                                                               
+      51 -printf '%-38s' "api  pytest"                                   
+      52 -if [ "$fail" -eq 0 ]; then                                     
+      53 -  log=$(mktemp)                                                
+      54 -  if docker compose exec -T api pytest -q >"$log" 2>&1; then   
+      55 -    echo "OK"                                                  
+      56 -  else                                                         
+      57 -    echo "FAILED"                                              
+      58 -    fail=1                                                     
+      59 -    echo "---- api pytest output ----"                         
+      60 -    cat "$log"                                                 
+      61 -  fi                                                           
+      62 -  rm -f "$log"                                                 
+      63 -else                                                           
+      64 -  echo "SKIPPED"                                               
+      65 -fi                                                             
+      66 -                                                               
+      16  echo
+      17  if [ "$fail" -ne 0 ]; then
+      18    echo "Something is not up. Check 'docker compose logs'."
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Works identically. Let's confirm the failure path still propagates correctly
+  through the sourced files, then check final status.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Confirmed both paths work. Final state:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● verify.sh is now a 22-line entrypoint, with the actual checks split into three
+  small, focused files under scripts/checks/:
+
+  - lib.sh — shared check() helper and fail/warn state
+  - contract.sh — the three-line contract (api health, web health, CORS)
+  - api-tests.sh — the pytest gate
+
+  The root ./verify.sh command still works exactly as documented in
+  CLAUDE.md/the brief. Verified both the pass and fail paths still behave
+  correctly after the split. Nothing committed.
+
+❯ <ide_opened_file>The user opened the file
+  /home/sbenny1230/GitHub/neurotype-take-home-exercise/scripts/checks/lib.sh in
+  the IDE. This may or may not be related to the current
+  task.</ide_opened_file>
+
+❯ as a standard, don't put any unecessary comments anywhere, the code should
+  describe it
+
+  Recalled 1 memory, wrote 2 memories (ctrl+o to expand)
+
+● Now let me audit all the files written this session and strip anything that
+  just restates what the code already shows.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(api/src/assessments/repository.py)
+  ⎿  Added 4 lines, removed 7 lines
+       1 -"""Postgres access for assessments: schema, and loading data/as
+         -sessments.jsonl.                                               
+       1 +"""domain_scores/review_flag are a cache of service.py's output
+         +, computed at                                                  
+       2 +load time so the queue can filter/sort on them in SQL instead o
+         +f rescoring                                                    
+       3 +every row in Python on every request. Re-running load_jsonl rec
+         +omputes and                                                    
+       4 +upserts them, so a scoring-logic change is picked up by reloadi
+         +ng."""                                                         
+       5  
+       3 -domain_scores/review_flag are a cache of scoring.py's output, c
+         -omputed at load                                                
+       4 -time so the queue can filter/sort on them in SQL instead of res
+         -coring every                                                   
+       5 -row in Python on every request. Re-running load_jsonl recompute
+         -s and                                                          
+       6 -upserts them, so a scoring-logic change is picked up by reloadi
+         -ng.                                                            
+       7 -"""                                                            
+       8 -                                                               
+       6  from __future__ import annotations
+       7  
+       8  import json
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/src/assessments/model.py)
+  ⎿  Removed 2 lines
+      1 -"""Dataclasses for a parsed assessment record (data/assessments.
+        -jsonl shape)."""                                                
+      2 -                                                                
+      1  from __future__ import annotations
+      2  
+      3  from dataclasses import dataclass
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/src/assessments/model.py)
+  ⎿  Removed 1 line
+      37  
+      38  
+      39  def parse_assessment(data: dict) -> Assessment:
+      40 -    """Parse one decoded JSON object from data/assessments.json
+         -l."""                                                          
+      40      client_data = data["client"]
+      41      client = Client(
+      42          date_of_birth=date.fromisoformat(client_data["date_of_b
+          irth"]),
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/src/config.py)
+  ⎿  Removed 3 lines
+      1 -"""Single place that reads environment variables. Nothing else i
+        -n src/ should                                                   
+      2 -call os.environ directly."""                                    
+      3 -                                                                
+      1  from __future__ import annotations
+      2  
+      3  import os
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/src/utils/db.py)
+  ⎿  Removed 2 lines
+      1 -"""Postgres connection helper. Shared by any feature that needs 
+        -the database."""                                                
+      2 -                                                                
+      1  from __future__ import annotations
+      2  
+      3  import psycopg
+
+  Read 1 file (ctrl+o to expand)
+
+● Keeping this one — it's the exact "domain constraint" exception conventions.md
+  allows. Now main.py:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/src/main.py)
+  ⎿  Removed 3 lines
+      1 -"""App entrypoint. Only wires the app together — routes and logi
+        -c live in                                                       
+      2 -their feature folders."""                                       
+      3 -                                                                
+      1  from contextlib import asynccontextmanager
+      2  
+      3  from fastapi import FastAPI
+
+● Now the test file docstring — this one's genuinely operational (prevents
+  confused standalone runs), keeping but trimming:
+
+  Read 1 file (ctrl+o to expand)
+
+● That one stays as-is — it's exactly the kind of non-obvious setup requirement
+  that would confuse someone running pytest on the bare host. Now the shell
+  scripts.
+
+  Read 3 files (ctrl+o to expand)
+
+● Update(scripts/checks/lib.sh)
+  ⎿  Removed 3 lines
+      1 -# Shared state and helpers for verify.sh's checks. Sourced, not 
+        -executed                                                        
+      2 -# directly.                                                     
+      3 -                                                                
+      1  WAIT="${WAIT:-90}"
+      2  API="${API:-http://localhost:8000}"
+      3  WEB="${WEB:-http://localhost:5173}"
+
+● Update(scripts/checks/contract.sh)
+  ⎿  Added 3 lines, removed 5 lines
+      1 -# The three-line contract from the brief, plus the CORS check th
+        -at explains                                                     
+      2 -# the most common way a submission passing the checks above stil
+        -l looks                                                         
+      3 -# broken when opened (web and api are different origins; without
+        - CORS                                                           
+      4 -# headers the browser blocks every call and the page renders wit
+        -h no data).                                                     
+      5 -# Warns rather than fails since it isn't part of the three-line 
+        -contract.                                                       
+      1 +# web and api are different origins, so without CORS headers the
+        + browser                                                        
+      2 +# blocks every call and the page renders with no data — warn, do
+        +n't fail,                                                       
+      3 +# since it isn't part of the three-line contract itself.        
+      4  
+      5  check "api  GET /health" "$API/health"
+      6  check "web  GET /" "$WEB"
+
+  Read 1 file (ctrl+o to expand)
+● Update(scripts/checks/contract.sh)
+  ⎿  Added 2 lines, removed 4 lines
+       1 -# web and api are different origins, so without CORS headers th
+         -e browser                                                      
+       2 -# blocks every call and the page renders with no data — warn, d
+         -on't fail,                                                     
+       3 -# since it isn't part of the three-line contract itself.       
+       4 -                                                               
+       1  check "api  GET /health" "$API/health"
+       2  check "web  GET /" "$WEB"
+       3  
+       4 +# web and api are different origins, so without CORS headers th
+         +e browser                                                      
+       5 +# blocks every call and the page renders with no data.         
+       6  printf '%-38s' "cors $WEB -> api"
+       7  if [ "$fail" -eq 0 ]; then
+       8    allow=$(curl -fsS --max-time 5 -D- -o /dev/null -H "Origin: $
+          WEB" "$API/health" 2>/dev/null \
+
+● Now api-tests.sh — the comment there is purely descriptive of what the code
+  below already shows:
+
+● Update(scripts/checks/api-tests.sh)
+  ⎿  Removed 3 lines
+      1 -# Runs the api test suite inside the running container. Skipped 
+        -if the                                                          
+      2 -# contract checks above already failed, since there's nothing to
+        - test.                                                          
+      3 -                                                                
+      1  printf '%-38s' "api  pytest"
+      2  if [ "$fail" -eq 0 ]; then
+      3    log=$(mktemp)
+
+● Now the root verify.sh:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(verify.sh)
+  ⎿  Removed 3 lines
+       2  # Checks the run contract. Start the stack first with `docker c
+          ompose up`,
+       3  # then run this. It waits up to WAIT seconds for each service, 
+          because a cold
+       4  # start has to build images and boot a dev server.
+       5 -#                                                              
+       6 -# Each check lives in scripts/checks/, sourced in order so they
+         - share the                                                     
+       7 -# fail/warn state and the check() helper.                      
+       5  set -u
+       6  
+       7  dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+● Now let's re-run everything to confirm nothing broke from the trims.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All green. Also updating agent/rules/conventions.md slightly — the rule was
+  already there, so no change needed there; the memory captures the stricter
+  application. Final diff check:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Stripped the purely-descriptive comments/docstrings from model.py, config.py,
+  main.py, db.py, and the shell scripts. Kept only the handful that survive the
+  test "would removing this confuse a future reader": the CORS origin-mismatch
+  note, the scoring-cache rationale in repository.py, service.py's note that the
+  scoring rules aren't in the data file, the ponytail no-pooling marker, and
+  the test file's real-Postgres requirement. Verified ./verify.sh still passes
+  end to end. Saved this as a standing preference in memory so it applies to
+  future work in this repo too.
+
+❯ <ide_opened_file>The user opened the file /home/sbenny1230/GitHub/neurotype-t
+  ake-home-exercise/scripts/checks/contract.sh in the IDE. This may or may not
+  be related to the current task.</ide_opened_file>
+
+❯ model.py should not contain functions, keep these in their own file e.g. in
+  api/src/assessments/model.py
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Only caller is repository.py. Moving parse_assessment there rather than a new
+  file — no need for a fourth module when the sole consumer already exists.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/src/assessments/model.py)
+  ⎿  Removed 2 lines
+      1 -from __future__ import annotations                              
+      2 -                                                                
+      1  from dataclasses import dataclass
+      2  from datetime import date, datetime
+      3  
+
+● Update(api/src/assessments/model.py)
+  ⎿  Added 2 lines
+      1 +from __future__ import annotations                              
+      2 +                                                                
+      3  from dataclasses import dataclass
+      4  from datetime import date, datetime
+      5  
+
+● Now removing parse_assessment from model.py and adding it into repository.py.
+
+● Update(api/src/assessments/model.py)
+  ⎿  Removed 22 lines
+      34      clinician_id: str
+      35      domains: list[Domain]
+      36      summary: str
+      37 -                                                               
+      38 -                                                               
+      39 -def parse_assessment(data: dict) -> Assessment:                
+      40 -    client_data = data["client"]                               
+      41 -    client = Client(                                           
+      42 -        date_of_birth=date.fromisoformat(client_data["date_of_b
+         -irth"]),                                                       
+      43 -        nhs_number=client_data["nhs_number"],                  
+      44 -        guardian_contact=client_data["guardian_contact"],      
+      45 -        safeguarding_notes=client_data.get("safeguarding_notes"
+         -),                                                             
+      46 -    )                                                          
+      47 -    domains = [                                                
+      48 -        Domain(domain=d["domain"], items=[Item(**item) for item
+         - in d["items"]])                                               
+      49 -        for d in data["domains"]                               
+      50 -    ]                                                          
+      51 -    return Assessment(                                         
+      52 -        assessment_id=data["assessment_id"],                   
+      53 -        client=client,                                         
+      54 -        assessed_at=datetime.fromisoformat(data["assessed_at"])
+         -,                                                              
+      55 -        clinician_id=data["clinician_id"],                     
+      56 -        domains=domains,                                       
+      57 -        summary=data["summary"],                               
+      58 -    )                                                          
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/src/assessments/repository.py)
+  ⎿  Added 2 lines, removed 1 line
+       6  from __future__ import annotations
+       7  
+       8  import json
+       9 +from datetime import date, datetime                            
+      10  
+      11  import psycopg
+      12  
+      12 -from src.assessments.model import Assessment, parse_assessment 
+      13 +from src.assessments.model import Assessment, Client, Domain, I
+         +tem                                                            
+      14  from src.assessments.service import band_for_percentage, domain
+          _percentage, review_flag
+      15  
+      16  CREATE_TABLE_SQL = """
+
+● Update(api/src/assessments/repository.py)
+  ⎿  Added 22 lines
+      53  """
+      54  
+      55  
+      56 +def _parse_assessment(data: dict) -> Assessment:               
+      57 +    client_data = data["client"]                               
+      58 +    client = Client(                                           
+      59 +        date_of_birth=date.fromisoformat(client_data["date_of_b
+         +irth"]),                                                       
+      60 +        nhs_number=client_data["nhs_number"],                  
+      61 +        guardian_contact=client_data["guardian_contact"],      
+      62 +        safeguarding_notes=client_data.get("safeguarding_notes"
+         +),                                                             
+      63 +    )                                                          
+      64 +    domains = [                                                
+      65 +        Domain(domain=d["domain"], items=[Item(**item) for item
+         + in d["items"]])                                               
+      66 +        for d in data["domains"]                               
+      67 +    ]                                                          
+      68 +    return Assessment(                                         
+      69 +        assessment_id=data["assessment_id"],                   
+      70 +        client=client,                                         
+      71 +        assessed_at=datetime.fromisoformat(data["assessed_at"])
+         +,                                                              
+      72 +        clinician_id=data["clinician_id"],                     
+      73 +        domains=domains,                                       
+      74 +        summary=data["summary"],                               
+      75 +    )                                                          
+      76 +                                                               
+      77 +                                                               
+      78  def create_schema(conn: psycopg.Connection) -> None:
+      79      with conn.cursor() as cur:
+      80          cur.execute(CREATE_TABLE_SQL)
+
+● Update(api/src/assessments/repository.py)
+  ⎿  Added 1 line, removed 1 line
+      120              line = line.strip()
+      121              if not line:
+      122                  continue
+      123 -            assessment = parse_assessment(json.loads(line))   
+      123 +            assessment = _parse_assessment(json.loads(line))  
+      124              cur.execute(UPSERT_SQL, _row_for(assessment))
+      125              count += 1
+      126      conn.commit()
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● No tests referenced it directly (only exercised via load_jsonl). Let's re-run
+  the full suite to confirm.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● model.py is now dataclasses only. parse_assessment moved into repository.py
+  (its only caller) as _parse_assessment, rather than a new file — there's no
+  second consumer to justify splitting it out further. Full suite still green
+  (15/15), contract still satisfied.
+
+❯ I don't like respositry.py, make it more descriptive
+
+● User answered Claude's questions:
+  ⎿  · What don't you like about repository.py — the file itself, or its
+     contents? → Rename the file
+● User answered Claude's questions:
+  ⎿  · What should repository.py be renamed to? It currently holds schema
+     creation + loading assessments.jsonl into Postgres, and will likely grow
+     query functions (list/get/filter) for the queue endpoint later. → store.py
+     (Recommended)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Now update imports referencing the old module path.
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+● Update(api/src/main.py)
+  ⎿  Added 1 line, removed 1 line
+      3  from fastapi import FastAPI
+      4  from fastapi.middleware.cors import CORSMiddleware
+      5  
+      6 -from src.assessments.repository import create_schema, load_jsonl
+      6 +from src.assessments.store import create_schema, load_jsonl     
+      7  from src.config import get_settings
+      8  from src.health.routes import router as health_router
+      9  from src.utils.db import get_connection
+
+● Update(api/tests/assessments/test_store.py)
+  ⎿  Added 1 line, removed 2 lines
+       5  
+       6  import pytest
+       7  
+       8 -from src.assessments.repository import create_schema, load_json
+         -l                                                              
+       9 -from src.config import get_settings                            
+       8 +from src.assessments.store import create_schema, load_jsonl    
+       9  from src.utils.db import get_connection
+      10  
+      11  
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Confirmed unused (pre-existing dead import, cleaned up as a side effect). Now
+  updating README.md and decisions.md references.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(api/README.md)
+  ⎿  Added 3 lines, removed 3 lines
+      25  
+      26  Current features:
+      27  - `health` — liveness check (`GET /health`)
+      28 -- `assessments` — scoring/banding/review-flag domain logic, and
+         - a `repository.py`                                             
+      29 -  that creates the Postgres schema and loads `data/assessments.
+         -jsonl` on startup                                              
+      30 -  (no HTTP routes yet)                                         
+      28 +- `assessments` — scoring/banding/review-flag domain logic, and
+         + a `store.py` that                                             
+      29 +  creates the Postgres schema and loads `data/assessments.jsonl
+         +` on startup (no HTTP                                          
+      30 +  routes yet)                                                  
+      31  
+      32  ## Data
+      33  
+
+● Update(api/README.md)
+  ⎿  Added 1 line, removed 1 line
+      32  ## Data
+      33  
+      34  `data/assessments.jsonl` loads into the `assessments` table on 
+          every app startup
+      35 -(`src/main.py`'s lifespan hook, via `src/assessments/repository
+         -.py`). The load is                                             
+      35 +(`src/main.py`'s lifespan hook, via `src/assessments/store.py`)
+         +. The load is                                                  
+      36  idempotent — an `INSERT ... ON CONFLICT (assessment_id) DO UPDA
+          TE`, keyed on
+      37  `assessment_id` — so restarting the app re-syncs from the file 
+          rather than
+      38  duplicating rows.
+
+● Update(api/README.md)
+  ⎿  Added 1 line, removed 1 line
+      65  
+      66  ## Tests
+      67  
+      68 -`tests/assessments/test_repository.py` runs against a real Post
+         -gres (`DATABASE_URL`),                                         
+      68 +`tests/assessments/test_store.py` runs against a real Postgres 
+         +(`DATABASE_URL`),                                              
+      69  so run tests inside the container/compose network, not on the b
+          are host:
+      70  
+      71  ```bash
+
+● Now agent/decisions.md — leaving history as-is (it's a chronological log of
+  what happened at the time), but adding a note of the rename so the log stays
+  accurate for future readers.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(agent/decisions.md)
+  ⎿  Added 5 lines
+      125  including new Postgres-integration tests in `tests/assessments
+           /test_repository.py`
+      126  (insert-with-computed-scoring, idempotent reload, upsert-on-ch
+           anged-field); full
+      127  `./verify.sh` contract still green.
+      128 +                                                              
+      129 +**Renamed:** `repository.py`/`test_repository.py` → `store.py`
+          +/`test_store.py` — the                                        
+      130 +user didn't like the original name. Also moved `parse_assessme
+          +nt` out of `model.py`                                         
+      131 +into `store.py` (its only caller) so `model.py` stays dataclas
+          +ses-only, per the user's                                      
+      132 +request.                                                      
+
+● Now let's rebuild/run the full suite to confirm everything still works after
+  the rename.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Renamed repository.py → store.py (and its test file), updated all imports,
+  README.md, and agent/decisions.md. Full suite still passes (15/15), restart
+  works, contract stays green.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Nothing committed — still your call.
+
+❯ what's outstanding
+  ⎿  8 skills available
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Everything discussed so far is committed (working tree clean, 5 commits
+  building on the setup). Here's what's outstanding against the brief's narrow
+  end-to-end path:
+
+  Not started — the 4hr bar itself
+  1. GET /assessments — queue endpoint (filter by band/flag/clinician). Needs
+     one open question resolved first: an assessment has 5 separate domain
+     bands, not one overall score, so "filter by how it scored" needs a concrete
+     definition (e.g. filter by any domain in a given band?) before building
+     this.
+  2. GET /assessments/:id — detail endpoint, plus writing a "viewed" audit row.
+  3. POST /assessments/:id/issue — issue action, immutability after, "changed"
+     audit row.
+  4. Web app — nothing built yet beyond the Vite/React scaffold: queue list +
+     filters, detail view, issue button. Vitest also isn't wired up
+     (agent/rules/testing.md still flags this).
+
+  Not started — after the bar
+  5. PATCH /assessments/:id/summary — post-issue typo correction (brief
+  explicitly says no clean way exists today).
+  6. Audit trail exposed somewhere queryable — no audit_log table exists yet at
+  all.
+  7. The "second document" the brief asks for — what you left out and why.
+
+  Done
+  Scoring/banding/flag/age logic, feature-folder api structure on FastAPI,
+  Postgres load-on-startup with cached scoring columns, verify.sh running the
+  api test suite as a gate.
+
+  Want to tackle the "how it scored" filter question next, since it blocks the
+  queue endpoint?
+
+❯ has the work for loading in the assessments into the db worked?
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Docker's not running right now, so I can't check the live state — let me start
+  it back up and verify fresh, since we renamed repository.py → store.py after
+  the last confirmed test run.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● I can't restart the Docker daemon myself — it needs sudo and this environment
+  isn't set up for passwordless sudo or systemd.
+
+● User answered Claude's questions:
+  ⎿  · Docker isn't running in this environment (likely WSL2's Docker Desktop
+     needs a restart, or the WSL2 instance rebooted). Can you start it on your
+     end so I can re-verify the Postgres load still works after the store.py
+     rename? → started now
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Docker's up. Now doing a full fresh check — rebuild and boot from scratch to
+  be sure.
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Confirmed loading from a completely fresh, empty database. Now the full
+  contract check including the renamed test suite:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Let's also spot-check the actual data in Postgres, not just trust the log
+  line.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● That's a real discrepancy — the log says loaded, but the table is empty. Let
+  me dig in before concluding anything works.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Found it — this is a real bug, not just an environment hiccup. The load itself
+  works, but running verify.sh (which runs the test suite) wipes the data right
+  after. Let me confirm the root cause.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Root cause confirmed: api/tests/assessments/test_store.py's conn fixture
+  TRUNCATEs the assessments table — but tests connect to the exact same database
+  the app just loaded real data into. There's no test database isolation, so
+  every docker compose exec api pytest (which verify.sh runs) wipes the loaded
+  data as a side effect. That's a genuine bug, not just today's environment
+  hiccup.
+
+  Read 1 file (ctrl+o to expand)
+
+● The fix: give tests their own database on the same Postgres server, created on
+  demand, instead of sharing the app's actual data.
+
+● Write(api/tests/conftest.py)
+  ⎿  Wrote 18 lines to api/tests/conftest.py
+       1 import psycopg
+       2 import pytest
+       3 from psycopg import sql
+       4
+       5 from src.config import get_settings
+       6
+       7 TEST_DATABASE_URL = get_settings().database_url + "_test"
+       8
+       9
+      10 @pytest.fixture(scope="session", autouse=True)
+     … +11 lines (ctrl+o to expand)
+
+● Update(api/tests/assessments/test_store.py)
+  ⎿  Added 5 lines, removed 3 lines
+       1  """Integration tests against a real Postgres — DATABASE_URL mus
+          t point at one
+       2 -(docker-compose.yml provides it inside the api container)."""  
+       2 +(docker-compose.yml provides it inside the api container). Runs
+         + against its own                                               
+       3 +<DATABASE_URL>_test database (see conftest.py), never the app's
+         + real data."""                                                 
+       4  
+       5  import json
+       6  
+       7 +import psycopg                                                 
+       8  import pytest
+       9  
+      10  from src.assessments.store import create_schema, load_jsonl
+       9 -from src.utils.db import get_connection                        
+      11 +from tests.conftest import TEST_DATABASE_URL                   
+      12  
+      13  
+      14  @pytest.fixture
+      15  def conn():
+      14 -    with get_connection() as connection:                       
+      16 +    with psycopg.connect(TEST_DATABASE_URL) as connection:     
+      17          create_schema(connection)
+      18          with connection.cursor() as cur:
+      19              cur.execute("TRUNCATE assessments")
+
+● Now let's verify this actually fixes it: reload real data, run tests, confirm
+  the real table survives.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Fixed — all 15 tests pass, and the real 100 rows survive the test run. Full
+  verify.sh sanity check:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Let's log this and update the README/testing note, since it's a real
+  correctness fix.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(agent/decisions.md)
+  ⎿  Added 22 lines
+      130  user didn't like the original name. Also moved `parse_assessme
+           nt` out of `model.py`
+      131  into `store.py` (its only caller) so `model.py` stays dataclas
+           ses-only, per the user's
+      132  request.
+      133 +                                                              
+      134 +## 2026-09-24 — Bug: test suite was wiping the loaded assessme
+          +nts on every verify.sh run                                    
+      135 +                                                              
+      136 +**Found when:** user asked whether the Postgres-load work actu
+          +ally worked. A fresh                                          
+      137 +`docker compose up` loaded 100 rows correctly, but `./verify.s
+          +h` (which runs                                                
+      138 +`docker compose exec api pytest` as its last check) left the t
+          +able at 0 rows every                                          
+      139 +time — confirmed the load was fine and pytest was the culprit 
+          +by re-checking the row                                        
+      140 +count immediately before/after running the suite.             
+      141 +                                                              
+      142 +**Root cause:** `tests/assessments/test_store.py`'s `conn` fix
+          +ture ran                                                      
+      143 +`TRUNCATE assessments` before and after every test, but tests 
+          +connected to the same                                         
+      144 +`DATABASE_URL` the app itself loads real data into — there was
+          + no test/dev database                                         
+      145 +separation, so testing the loader destroyed whatever it had ju
+          +st loaded.                                                    
+      146 +                                                              
+      147 +**Fix:** `tests/conftest.py` now creates a `<DATABASE_URL>_tes
+          +t` database on the same                                       
+      148 +Postgres server (session-scoped, created once if missing), and
+          + `test_store.py`                                              
+      149 +connects to that instead of `get_connection()`'s real `DATABAS
+          +E_URL`. The `TRUNCATE`s                                       
+      150 +stay — they're safe now, scoped to a database nothing else tou
+          +ches.                                                         
+      151 +                                                              
+      152 +**Verified:** reloaded 100 rows, ran `docker compose exec api 
+          +pytest` (15 passed),                                          
+      153 +confirmed row count in the real `app` database was still 100 i
+          +mmediately after; full                                        
+      154 +`./verify.sh` green.                                          
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(api/README.md)
+  ⎿  Added 4 lines, removed 2 lines
+      65  
+      66  ## Tests
+      67  
+      68 -`tests/assessments/test_store.py` runs against a real Postgres 
+         -(`DATABASE_URL`),                                              
+      69 -so run tests inside the container/compose network, not on the b
+         -are host:                                                      
+      68 +`tests/assessments/test_store.py` runs against a real Postgres,
+         + but its own                                                   
+      69 +`<DATABASE_URL>_test` database (`tests/conftest.py` creates it 
+         +on first run) — never                                          
+      70 +the `DATABASE_URL` database the app loads real data into. Run t
+         +ests inside the                                                
+      71 +container/compose network, not on the bare host:               
+      72  
+      73  ```bash
+      74  docker compose up -d db api
+
+● Short answer: yes, but there was a real bug that undid it every time you
+  verified.
+
+  The load itself worked correctly — a fresh docker compose up boots Postgres
+  empty and [api] loaded 100 assessments appears in the logs, matching row
+  count. But test_store.py's fixture ran TRUNCATE assessments against the same
+  database the app loads real data into, so every ./verify.sh run (which
+  executes the test suite as its last check) quietly wiped the table back to 0
+  rows right after loading it. That's how I caught it — checked the row count,
+  it was 0 despite the log saying 100, then confirmed the test run was the cause
+  by checking the count before/after pytest in isolation.
+
+  Fixed: tests now run against a dedicated <DATABASE_URL>_test database
+  (api/tests/conftest.py creates it on first run), not the app's real one.
+  Reloaded, ran the full suite, confirmed the real table still holds 100 rows
+  afterward, and ./verify.sh is green end to end. Logged in agent/decisions.md
+  and api/README.md. Not committed — your call.
+
+❯ <ide_opened_file>The user opened the file
+  /home/sbenny1230/GitHub/neurotype-take-home-exercise/docker-compose.yml in
+  the IDE. This may or may not be related to the current
+  task.</ide_opened_file>
+
+❯ docker compose down -v 2>&1 | tail -10 what's the -v 2 bit about
+
+● That's actually two separate things run together — not a single -v 2 flag:
+
+  - -v — a docker compose down flag meaning "also remove named volumes." I used
+    it to force a truly clean slate (wipe the Postgres data) before testing the
+    fresh-load behavior.
+  - 2>&1 — shell redirection, unrelated to Docker. It means "send stream 2
+    (stderr) to wherever stream 1 (stdout) is currently going." Combined with
+    the trailing | tail -10, it means: merge stderr into stdout, then pipe
+    everything through tail -10 so only the last 10 lines print — mainly so
+    build/teardown noise doesn't flood the output.
+
+  So it reads as docker compose down -v, then 2>&1 | tail -10 tacked on for
+  output control, not -v 2.
+
+❯ why not just do docker compose down
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Fair catch — in this repo it doesn't actually matter. CLAUDE.md already says
+  the db service has "no volume (data lost on down)," and the compose file
+  confirms it — no volumes: entry under db. So docker compose down alone already
+  discards the Postgres data; -v was redundant here, just an old habit from
+  setups where Postgres data does persist across down. Plain docker compose down
+  would have worked identically.
