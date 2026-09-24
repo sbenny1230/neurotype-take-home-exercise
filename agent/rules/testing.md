@@ -12,7 +12,6 @@
   Postgres). Pure-logic tests also run standalone with
   `cd api && python3 -m pytest tests/`. Pytest wired up alongside the scoring module;
   tests under `api/tests/`, mirroring `api/src/`.
-- web: not wired up yet. The first task that touches `web/` should add vitest as part of
-  its first commit, not as an afterthought.
-- A single command should be able to run the whole suite; keep `verify.sh` and this file
-  pointing at it once both sides are wired up.
+- web: `docker compose exec web npm test` (vitest, jsdom environment, configured in
+  `web/vite.config.ts`). Tests sit next to the component they cover (`Foo.test.tsx`).
+- `./verify.sh` runs both suites (api pytest, web vitest) after the contract checks.
