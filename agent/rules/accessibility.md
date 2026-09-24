@@ -8,7 +8,7 @@ The web app meets WCAG 2.1 level AA. Check these on every UI change:
   200% zoom and at 320px wide without horizontal scrolling, except inside data tables.
 - **Contrast (1.4.3, 1.4.11).** Text at least 4.5:1 against its background (3:1 for text 24px+
   or 18.66px+ bold). Focus indicators and the edges of controls at least 3:1. Check both the
-  light and dark palettes in `styles/theme.css` when adding or changing a colour.
+  light and dark palettes in `styles/theme.scss` when adding or changing a colour.
 - **Not colour alone (1.4.1).** Status is written out in words (e.g. "Needs review"), with
   colour only as a second signal.
 - **Keyboard (2.1.1, 2.4.7).** Every action works from the keyboard using native elements

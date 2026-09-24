@@ -17,7 +17,7 @@ web/
   src/
     assets/       static files imported by components (logos, images)
     components/   reusable components (used by more than one page)
-    styles/       shared styles (theme variables, base styles)
+    styles/       shared SCSS (theme variables, base styles)
     services/     RTK Query APIs: one folder per backend feature (e.g. services/assessments/)
     features/     Redux slices
     types/        shared domain types (e.g. queueItem.type.ts)
@@ -28,7 +28,7 @@ web/
 ```
 
 - Colocate: a file's types (`.type.ts`), interfaces (`.interface.ts`), styles
-  (`.module.css`) and unit tests (`.test.ts` / `.test.tsx`) sit next to it.
+  (`.module.scss`) and unit tests (`.test.ts` / `.test.tsx`) sit next to it.
 - A module with colocated files (its test, types, styles) gets its own folder named after it.
   The module is a default export, and the folder's `index.ts` re-exports it
   (`export default getApiUrl`), so callers import the folder: `import getApiUrl from
