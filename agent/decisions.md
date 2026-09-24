@@ -130,3 +130,25 @@ including new Postgres-integration tests in `tests/assessments/test_repository.p
 user didn't like the original name. Also moved `parse_assessment` out of `model.py`
 into `store.py` (its only caller) so `model.py` stays dataclasses-only, per the user's
 request.
+
+## 2026-09-24 — Bug: test suite was wiping the loaded assessments on every verify.sh run
+
+**Found when:** user asked whether the Postgres-load work actually worked. A fresh
+`docker compose up` loaded 100 rows correctly, but `./verify.sh` (which runs
+`docker compose exec api pytest` as its last check) left the table at 0 rows every
+time — confirmed the load was fine and pytest was the culprit by re-checking the row
+count immediately before/after running the suite.
+
+**Root cause:** `tests/assessments/test_store.py`'s `conn` fixture ran
+`TRUNCATE assessments` before and after every test, but tests connected to the same
+`DATABASE_URL` the app itself loads real data into — there was no test/dev database
+separation, so testing the loader destroyed whatever it had just loaded.
+
+**Fix:** `tests/conftest.py` now creates a `<DATABASE_URL>_test` database on the same
+Postgres server (session-scoped, created once if missing), and `test_store.py`
+connects to that instead of `get_connection()`'s real `DATABASE_URL`. The `TRUNCATE`s
+stay — they're safe now, scoped to a database nothing else touches.
+
+**Verified:** reloaded 100 rows, ran `docker compose exec api pytest` (15 passed),
+confirmed row count in the real `app` database was still 100 immediately after; full
+`./verify.sh` green.

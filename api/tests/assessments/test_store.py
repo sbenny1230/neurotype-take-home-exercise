@@ -1,17 +1,19 @@
 """Integration tests against a real Postgres — DATABASE_URL must point at one
-(docker-compose.yml provides it inside the api container)."""
+(docker-compose.yml provides it inside the api container). Runs against its own
+<DATABASE_URL>_test database (see conftest.py), never the app's real data."""
 
 import json
 
+import psycopg
 import pytest
 
 from src.assessments.store import create_schema, load_jsonl
-from src.utils.db import get_connection
+from tests.conftest import TEST_DATABASE_URL
 
 
 @pytest.fixture
 def conn():
-    with get_connection() as connection:
+    with psycopg.connect(TEST_DATABASE_URL) as connection:
         create_schema(connection)
         with connection.cursor() as cur:
             cur.execute("TRUNCATE assessments")

@@ -65,8 +65,10 @@ Docker, set them in your shell or a `.env` you source yourself.
 
 ## Tests
 
-`tests/assessments/test_store.py` runs against a real Postgres (`DATABASE_URL`),
-so run tests inside the container/compose network, not on the bare host:
+`tests/assessments/test_store.py` runs against a real Postgres, but its own
+`<DATABASE_URL>_test` database (`tests/conftest.py` creates it on first run) — never
+the `DATABASE_URL` database the app loads real data into. Run tests inside the
+container/compose network, not on the bare host:
 
 ```bash
 docker compose up -d db api
