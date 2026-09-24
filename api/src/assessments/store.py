@@ -130,6 +130,6 @@ def load_jsonl(conn: psycopg.Connection, path: str) -> int:
 def list_queue(conn: psycopg.Connection) -> list[QueueItem]:
     rows = conn.execute(
         "SELECT assessment_id, clinician_id, assessed_at, review_flag"
-        " FROM assessments ORDER BY assessed_at"
+        " FROM assessments ORDER BY review_flag DESC, assessed_at"
     ).fetchall()
     return [QueueItem(*row) for row in rows]
