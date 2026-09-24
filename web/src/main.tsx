@@ -4,7 +4,10 @@ import { Provider } from 'react-redux'
 import App from './App'
 import { makeStore } from './store'
 
-createRoot(document.getElementById('root')!).render(
+const root = document.getElementById('root')
+if (!root) throw new Error('index.html is missing the #root element')
+
+createRoot(root).render(
   <StrictMode>
     <Provider store={makeStore()}>
       <App />
