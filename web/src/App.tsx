@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+import { getApiUrl } from './utils/apiUrl'
 
 export default function App() {
   const [api, setApi] = useState<'checking' | 'up' | 'down'>('checking')
 
   useEffect(() => {
-    fetch(`${API}/health`)
+    fetch(`${getApiUrl()}/health`)
       .then((r) => setApi(r.ok ? 'up' : 'down'))
       .catch(() => setApi('down'))
   }, [])
