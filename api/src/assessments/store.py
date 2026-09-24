@@ -10,7 +10,7 @@ from datetime import date, datetime
 
 import psycopg
 
-from src.assessments.model import Assessment, Client, Domain, Item, QueueItem
+from src.assessments.model import Assessment, Client, Domain, DomainScore, Item, QueueItem
 from src.assessments.service import band_for_percentage, domain_percentage, review_flag
 
 CREATE_TABLE_SQL = """
@@ -129,7 +129,16 @@ def load_jsonl(conn: psycopg.Connection, path: str) -> int:
 
 def list_queue(conn: psycopg.Connection) -> list[QueueItem]:
     rows = conn.execute(
-        "SELECT assessment_id, clinician_id, assessed_at, review_flag"
+        "SELECT assessment_id, clinician_id, assessed_at, review_flag, domain_scores"
         " FROM assessments ORDER BY review_flag DESC, assessed_at"
     ).fetchall()
-    return [QueueItem(*row) for row in rows]
+    return [
+        QueueItem(
+            assessment_id,
+            clinician_id,
+            assessed_at,
+            review_flag,
+            {domain: DomainScore(**score) for domain, score in domain_scores.items()},
+        )
+        for assessment_id, clinician_id, assessed_at, review_flag, domain_scores in rows
+    ]

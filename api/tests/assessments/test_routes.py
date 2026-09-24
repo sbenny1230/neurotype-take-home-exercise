@@ -34,6 +34,15 @@ def mixed_flag_records(record: dict) -> list[dict]:
     ]
 
 
+@pytest.fixture
+def record_with_unassessed_domain(record: dict) -> dict:
+    unassessed = {
+        "domain": "motor_coordination",
+        "items": [{"code": "MC1", "raw": None, "max": 20, "completed": False}],
+    }
+    return {**record, "domains": [*record["domains"], unassessed]}
+
+
 def test_queue_lists_flagged_first_then_oldest(client, conn, jsonl_file, mixed_flag_records):
     load_jsonl(conn, jsonl_file(mixed_flag_records))
 
@@ -58,4 +67,17 @@ def test_queue_rows_carry_review_fields_and_no_client_pii(client, conn, jsonl_fi
         "clinician_id": "c-005",
         "assessed_at": "2026-03-02T09:30:00Z",
         "review_flag": True,
+        "domain_scores": {
+            "social_communication": {"percentage": 95.0, "band": "substantial"},
+        },
     }
+
+
+def test_queue_row_scores_unassessed_domain_as_null(
+    client, conn, jsonl_file, record_with_unassessed_domain
+):
+    load_jsonl(conn, jsonl_file([record_with_unassessed_domain]))
+
+    (row,) = client.get("/assessments").json()
+
+    assert row["domain_scores"]["motor_coordination"] == {"percentage": None, "band": None}
