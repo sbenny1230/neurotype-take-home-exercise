@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { assessmentsApi } from './services/assessmentsApi'
+import { assessmentsApi } from 'services/assessments/assessmentsApi'
 
 export function makeStore() {
   return configureStore({
