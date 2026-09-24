@@ -17,9 +17,9 @@ web/
   src/
     components/   reusable components (used by more than one page)
     styles/       shared styles (theme variables, base styles)
-    services/     RTK Query APIs: one file per backend feature, calling its endpoints
+    services/     RTK Query APIs: one folder per backend feature (e.g. services/assessments/)
     features/     Redux slices
-    utils/        small shared helpers (e.g. apiUrl.ts: the api base URL)
+    utils/        small shared helpers, one folder each (e.g. utils/getApiUrl/)
     pages/        one folder per URL, holding that page's component, styles and parts
     store.ts      Redux store
   tests/          end-to-end tests (sits next to src/, not inside it)
