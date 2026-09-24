@@ -4,6 +4,8 @@ import { Provider } from 'react-redux'
 import App from './App'
 import { makeStore } from './store'
 
+import 'styles/theme.css'
+
 const root = document.getElementById('root')
 if (!root) throw new Error('index.html is missing the #root element')
 
