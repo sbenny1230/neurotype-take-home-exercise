@@ -10,7 +10,7 @@ export default defineConfig({
     // Keep in sync with "paths" in tsconfig.json.
     alias: [
       {
-        find: /^(components|features|pages|services|styles|types|utils)\//,
+        find: /^(assets|components|features|pages|services|styles|types|utils)\//,
         replacement: `${src}/$1/`,
       },
     ],
