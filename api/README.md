@@ -9,7 +9,7 @@ api/
   src/
     main.py            # entrypoint: builds the FastAPI app, wires CORS, includes routers
     config.py           # single place that reads env vars (WEB_ORIGIN, DATA_FILE, DATABASE_URL)
-    utils/               # shared helper modules used by more than one feature
+    clients/             # connections to outside systems: db connection, third-party credentials
     <feature>/
       model.py           # dataclasses for that feature's data
       service.py          # business logic
@@ -25,9 +25,9 @@ thin — it only starts the app and registers routers, it never contains busines
 
 Current features:
 - `health` — liveness check (`GET /health`)
-- `assessments` — scoring/banding/review-flag domain logic, and a `store.py` that
-  creates the Postgres schema and loads `data/assessments.jsonl` on startup (no HTTP
-  routes yet)
+- `assessments` — scoring/banding/review-flag domain logic, a `store.py` that
+  creates the Postgres schema and loads `data/assessments.jsonl` on startup, and the
+  queue endpoint (`GET /assessments`)
 
 ## Data
 

@@ -152,3 +152,37 @@ stay — they're safe now, scoped to a database nothing else touches.
 **Verified:** reloaded 100 rows, ran `docker compose exec api pytest` (15 passed),
 confirmed row count in the real `app` database was still 100 immediately after; full
 `./verify.sh` green.
+
+## 2026-09-24 — `GET /assessments` queue endpoint
+
+Returns every assessment as a queue row, oldest `assessed_at` first (FIFO). Each row has
+only `assessment_id`, `clinician_id`, `assessed_at`, and `review_flag`. No `client`
+fields are sent, per the security rule of not sending PII the view doesn't display.
+`src/assessments/routes.py` gets its connection through a `get_db` dependency so tests
+can override it with the `_test` database. The `conn`/`jsonl_file` fixtures moved into
+`tests/conftest.py` because a second test file now uses them. Filtering, pagination,
+and issued status are not built yet; they get added with the tasks that need them.
+
+## 2026-09-24 — `src/utils/` → `src/middleware/`
+
+At the user's request, `db.py` moved into a new `src/middleware/` folder. That folder holds
+code that connects to outside systems: the database connection now, and credentials for
+third-party endpoints later. `src/utils/` held only `db.py`, so it was removed instead of
+being left empty. Earlier entries in this log still mention `src/utils/db.py`; that is
+the same module under its old path.
+
+Later the same day the folder was renamed to `src/clients/`. In FastAPI, "middleware"
+means per-request hooks like `CORSMiddleware`, and the folder name would have suggested
+that.
+
+## 2026-09-24 — `src/utils/` → `src/middleware/`
+
+At the user's request, `db.py` moved into a new `src/middleware/` folder. That folder holds
+code that connects to outside systems: the database connection now, and credentials for
+third-party endpoints later. `src/utils/` held only `db.py`, so it was removed instead of
+being left empty. Earlier entries in this log still mention `src/utils/db.py`; that is
+the same module under its old path.
+
+Later the same day the folder was renamed to `src/clients/`. In FastAPI, "middleware"
+means per-request hooks like `CORSMiddleware`, and the folder name would have suggested
+that.
