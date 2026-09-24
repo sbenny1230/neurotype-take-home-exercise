@@ -6,12 +6,12 @@ upserts them, so a scoring-logic change is picked up by reloading."""
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from dataclasses import asdict
 
 import psycopg
 
-from src.assessments.model import Assessment, Client, Domain, DomainScore, Item, QueueItem
-from src.assessments.service import band_for_percentage, domain_percentage, review_flag
+from src.assessments.model import Assessment, DomainScore, QueueFilters, QueueItem
+from src.assessments.service import domain_scores, parse_assessment, review_flag
 
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS assessments (
@@ -53,43 +53,10 @@ ON CONFLICT (assessment_id) DO UPDATE SET
 """
 
 
-def _parse_assessment(data: dict) -> Assessment:
-    client_data = data["client"]
-    client = Client(
-        date_of_birth=date.fromisoformat(client_data["date_of_birth"]),
-        nhs_number=client_data["nhs_number"],
-        guardian_contact=client_data["guardian_contact"],
-        safeguarding_notes=client_data.get("safeguarding_notes"),
-    )
-    domains = [
-        Domain(domain=d["domain"], items=[Item(**item) for item in d["items"]])
-        for d in data["domains"]
-    ]
-    return Assessment(
-        assessment_id=data["assessment_id"],
-        client=client,
-        assessed_at=datetime.fromisoformat(data["assessed_at"]),
-        clinician_id=data["clinician_id"],
-        domains=domains,
-        summary=data["summary"],
-    )
-
-
 def create_schema(conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(CREATE_TABLE_SQL)
     conn.commit()
-
-
-def _domain_scores(assessment: Assessment) -> dict[str, dict[str, float | str | None]]:
-    scores = {}
-    for domain in assessment.domains:
-        pct = domain_percentage(domain)
-        scores[domain.domain] = {
-            "percentage": pct,
-            "band": band_for_percentage(pct).value if pct is not None else None,
-        }
-    return scores
 
 
 def _row_for(assessment: Assessment) -> dict:
@@ -108,7 +75,9 @@ def _row_for(assessment: Assessment) -> dict:
             ]
         ),
         "summary": assessment.summary,
-        "domain_scores": json.dumps(_domain_scores(assessment)),
+        "domain_scores": json.dumps(
+            {name: asdict(score) for name, score in domain_scores(assessment).items()}
+        ),
         "review_flag": review_flag(assessment),
     }
 
@@ -120,17 +89,55 @@ def load_jsonl(conn: psycopg.Connection, path: str) -> int:
             line = line.strip()
             if not line:
                 continue
-            assessment = _parse_assessment(json.loads(line))
+            assessment = parse_assessment(json.loads(line))
             cur.execute(UPSERT_SQL, _row_for(assessment))
             count += 1
     conn.commit()
     return count
 
 
-def list_queue(conn: psycopg.Connection) -> list[QueueItem]:
+def _like_pattern(text: str) -> str:
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def _queue_conditions(filters: QueueFilters) -> tuple[list[str], dict]:
+    conditions = []
+    params: dict = {}
+    if filters.review_flag is not None:
+        conditions.append("review_flag = %(review_flag)s")
+        params["review_flag"] = filters.review_flag
+    if filters.clinician_id:
+        conditions.append("clinician_id = %(clinician_id)s")
+        params["clinician_id"] = filters.clinician_id
+    # Filter dates are UK calendar days, not UTC ones: 23:30 UTC on 30 April is 1 May in London.
+    if filters.assessed_from:
+        conditions.append("(assessed_at AT TIME ZONE 'Europe/London')::date >= %(assessed_from)s")
+        params["assessed_from"] = filters.assessed_from
+    if filters.assessed_to:
+        conditions.append("(assessed_at AT TIME ZONE 'Europe/London')::date <= %(assessed_to)s")
+        params["assessed_to"] = filters.assessed_to
+    if filters.search:
+        conditions.append("assessment_id ILIKE %(search)s")
+        params["search"] = _like_pattern(filters.search)
+    if filters.score_domain:
+        conditions.append(
+            "(domain_scores -> %(score_domain)s ->> 'percentage')::float"
+            " BETWEEN %(score_min)s AND %(score_max)s"
+        )
+        params["score_domain"] = filters.score_domain
+        params["score_min"] = filters.score_min if filters.score_min is not None else 0
+        params["score_max"] = filters.score_max if filters.score_max is not None else 100
+    return conditions, params
+
+
+def list_queue(conn: psycopg.Connection, filters: QueueFilters) -> list[QueueItem]:
+    conditions, params = _queue_conditions(filters)
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     rows = conn.execute(
         "SELECT assessment_id, clinician_id, assessed_at, review_flag, domain_scores"
-        " FROM assessments ORDER BY review_flag DESC, assessed_at"
+        f" FROM assessments {where} ORDER BY review_flag DESC, assessed_at",
+        params,
     ).fetchall()
     return [
         QueueItem(

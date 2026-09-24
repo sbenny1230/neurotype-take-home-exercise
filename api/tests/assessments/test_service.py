@@ -3,8 +3,8 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from src.assessments.model import Assessment, Client, Domain, Item
-from src.assessments.service import Band, age_at, band_for_percentage, domain_percentage, review_flag
+from src.assessments.model import Assessment, Band, Client, Domain, Item
+from src.assessments.service import age_at, band_for_percentage, domain_percentage, review_flag
 
 DATE_OF_BIRTH = date(2014, 3, 2)
 

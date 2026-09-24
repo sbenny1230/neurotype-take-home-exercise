@@ -11,9 +11,10 @@ api/
     config.py           # single place that reads env vars (WEB_ORIGIN, DATA_FILE, DATABASE_URL)
     clients/             # connections to outside systems: db connection, third-party credentials
     <feature>/
-      model.py           # dataclasses for that feature's data
-      service.py          # business logic
-      routes.py           # FastAPI router (only once the feature has endpoints)
+      model.py           # describes data: dataclasses, enums, pydantic request models
+      service.py          # makes decisions: anything needing neither a db connection nor a request
+      store.py            # persistence: SQL and connections
+      routes.py           # HTTP: FastAPI router (only once the feature has endpoints)
   tests/
     <feature>/            # mirrors src/, one test file per module it covers
   requirements.txt
