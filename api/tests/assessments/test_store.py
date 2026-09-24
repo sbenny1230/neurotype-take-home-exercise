@@ -2,32 +2,17 @@
 (docker-compose.yml provides it inside the api container). Runs against its own
 <DATABASE_URL>_test database (see conftest.py), never the app's real data."""
 
+import pytest
+
 from src.assessments.store import load_jsonl
 
-RECORD = {
-    "assessment_id": "a-test-1",
-    "client": {
-        "date_of_birth": "2014-03-02",
-        "nhs_number": "999 476 5919",
-        "guardian_contact": "j.okafor@example.com",
-    },
-    "assessed_at": "2026-03-02T09:30:00+00:00",
-    "clinician_id": "c-005",
-    "domains": [
-        {
-            "domain": "social_communication",
-            "items": [
-                {"code": "SC1", "raw": 19, "max": 20, "completed": True},
-                {"code": "SC2", "raw": None, "max": 20, "completed": False},
-            ],
-        }
-    ],
-    "summary": "x" * 250,
-}
+@pytest.fixture
+def reassigned_record(record: dict) -> dict:
+    return {**record, "clinician_id": "c-099"}
 
 
-def test_load_jsonl_inserts_row_with_computed_scoring(conn, jsonl_file):
-    path = jsonl_file([RECORD])
+def test_load_jsonl_inserts_row_with_computed_scoring(conn, jsonl_file, record):
+    path = jsonl_file([record])
 
     count = load_jsonl(conn, path)
 
@@ -44,8 +29,8 @@ def test_load_jsonl_inserts_row_with_computed_scoring(conn, jsonl_file):
     assert scores["social_communication"]["band"] == "substantial"
 
 
-def test_load_jsonl_is_idempotent_on_reload(conn, jsonl_file):
-    path = jsonl_file([RECORD])
+def test_load_jsonl_is_idempotent_on_reload(conn, jsonl_file, record):
+    path = jsonl_file([record])
     load_jsonl(conn, path)
     count = load_jsonl(conn, path)
 
@@ -56,12 +41,11 @@ def test_load_jsonl_is_idempotent_on_reload(conn, jsonl_file):
     assert total == 1
 
 
-def test_load_jsonl_upserts_changed_fields(conn, jsonl_file):
-    path = jsonl_file([RECORD])
+def test_load_jsonl_upserts_changed_fields(conn, jsonl_file, record, reassigned_record):
+    path = jsonl_file([record])
     load_jsonl(conn, path)
 
-    updated = {**RECORD, "clinician_id": "c-099"}
-    path = jsonl_file([updated])
+    path = jsonl_file([reassigned_record])
     load_jsonl(conn, path)
 
     with conn.cursor() as cur:
