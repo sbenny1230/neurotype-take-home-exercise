@@ -34,3 +34,11 @@ class Assessment:
     clinician_id: str
     domains: list[Domain]
     summary: str
+
+
+@dataclass(frozen=True)
+class QueueItem:
+    assessment_id: str
+    clinician_id: str
+    assessed_at: datetime
+    review_flag: bool
