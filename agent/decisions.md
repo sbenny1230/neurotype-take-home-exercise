@@ -155,7 +155,8 @@ confirmed row count in the real `app` database was still 100 immediately after; 
 
 ## 2026-09-24 — `GET /assessments` queue endpoint
 
-Returns every assessment as a queue row, oldest `assessed_at` first (FIFO). Each row has
+Returns every assessment as a queue row: flagged rows first, then oldest `assessed_at` first
+(changed from plain oldest-first the same day, at the user's request). Each row has
 only `assessment_id`, `clinician_id`, `assessed_at`, and `review_flag`. No `client`
 fields are sent, per the security rule of not sending PII the view doesn't display.
 `src/assessments/routes.py` gets its connection through a `get_db` dependency so tests
@@ -186,3 +187,18 @@ the same module under its old path.
 Later the same day the folder was renamed to `src/clients/`. In FastAPI, "middleware"
 means per-request hooks like `CORSMiddleware`, and the folder name would have suggested
 that.
+
+## 2026-09-24 — Web app: queue page, RTK Query, design from neurotype.uk
+
+- **Data:** RTK Query (`services/assessments/assessmentsApi.ts`) in a Redux store, chosen by the
+  user over plain `fetch`. Redux slices go in `features/` once shared client state exists.
+- **Design:** follows https://neurotype.uk: Open Sans (Google Fonts), navy `#101460` headings,
+  indigo `#4B48FF` accent, purple gradient buttons, lavender borders, 16px-radius white cards,
+  uppercase overline labels. The real black/white logo SVGs are in `web/public/`. A dark
+  palette follows the OS setting (`styles/theme.css`); the site itself is light-only.
+- **Queue page:** a table in a card (assessment, assessed date in UK format, clinician ID,
+  "Needs review" label). Loading shows skeleton rows (no animation under reduced motion);
+  errors show a message and Retry.
+- **Tooling:** Vitest + Testing Library, ESLint 10 + Prettier, bare-name folder aliases
+  (`types/...`), all checked by `verify.sh`. The folder layout and file-naming rules are in
+  `agent/rules/conventions.md`.

@@ -15,6 +15,7 @@
 ```
 web/
   src/
+    assets/       static files imported by components (logos, images)
     components/   reusable components (used by more than one page)
     styles/       shared styles (theme variables, base styles)
     services/     RTK Query APIs: one folder per backend feature (e.g. services/assessments/)
