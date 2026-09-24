@@ -29,6 +29,9 @@ web/
 
 - Colocate: a file's types (`.type.ts`), interfaces (`.interface.ts`), styles
   (`.module.scss`) and unit tests (`.test.ts` / `.test.tsx`) sit next to it.
+- Component styles are CSS Modules (`Foo.module.scss`, used as `className={styles.table}`), so
+  class names are scoped per file and pages can reuse short names like `.table` without clashing.
+  Plain global `.scss` only in `src/styles/` (theme variables, base element styles).
 - A module with colocated files (its test, types, styles) gets its own folder named after it.
   The module is a default export, and the folder's `index.ts` re-exports it
   (`export default getApiUrl`), so callers import the folder: `import getApiUrl from
