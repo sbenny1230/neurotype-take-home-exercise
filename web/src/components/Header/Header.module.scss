@@ -1,0 +1,28 @@
+.header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.logo {
+  display: block;
+  height: clamp(1.5rem, 1rem + 2vw, 2.25rem);
+  width: auto;
+}
+
+.divider {
+  width: 1px;
+  height: 1.5em;
+  background: var(--color-border);
+}
+
+.title {
+  font-weight: 600;
+  color: var(--color-heading);
+}

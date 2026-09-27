@@ -9,6 +9,8 @@ dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$dir/scripts/checks/lib.sh"
 . "$dir/scripts/checks/contract.sh"
 . "$dir/scripts/checks/api-tests.sh"
+. "$dir/scripts/checks/web-tests.sh"
+. "$dir/scripts/checks/web-lint.sh"
 
 echo
 if [ "$fail" -ne 0 ]; then

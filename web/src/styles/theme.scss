@@ -1,0 +1,42 @@
+:root {
+  color-scheme: light dark;
+  --color-heading: #101460;
+  --color-text: #4b5563;
+  --color-accent: #4b48ff;
+  --color-accent-soft: rgba(75, 72, 255, 0.08);
+  --color-border: rgba(205, 206, 226, 0.6);
+  --color-page: #f7f7fc;
+  --color-surface: #ffffff;
+  --color-skeleton: #ececf5;
+  --gradient-button: linear-gradient(135deg, #541fe2, #684fff);
+  --gradient-text: linear-gradient(135deg, #541fe2, #4b48ff 50%, #8cb0ff);
+  --shadow-button: 0 0.25rem 1rem rgba(84, 31, 226, 0.3);
+  --radius-card: 1rem;
+  font-family: 'Open Sans', system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-heading: #f3f3ff;
+    --color-text: #b8badb;
+    --color-accent: #9d9bff;
+    --color-accent-soft: rgba(157, 155, 255, 0.14);
+    --color-border: rgba(205, 206, 226, 0.16);
+    --color-page: #0a0c3d;
+    --color-surface: #11155a;
+    --color-skeleton: #1d2270;
+    --gradient-text: linear-gradient(135deg, #a58bff, #9d9bff 50%, #8cb0ff);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-text);
+}

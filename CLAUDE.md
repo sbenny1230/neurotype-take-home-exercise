@@ -54,6 +54,7 @@ docker compose up          # api (8000), web (5173), db (postgres)
 @agent/rules/react.md
 @agent/rules/testing.md
 @agent/rules/security.md
+@agent/rules/accessibility.md
 
 Keep these rule files current as the project evolves — update them, don't just accumulate
 exceptions here.

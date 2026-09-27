@@ -1,12 +1,12 @@
 # React conventions
 
 - Function components with hooks only. No class components.
-- State lives at the component that owns it; lift only when a sibling actually needs it. Don't
-  reach for a state library until plain `useState`/`useContext` stops being enough.
-- Keep components small and split by responsibility, not by anticipated reuse — don't extract a
-  shared component until there's a second real caller.
+- API calls go through RTK Query in `src/services/`. State shared between components goes in
+  Redux slices in `src/features/`. State used by a single component stays in `useState`.
+- Keep components small and split by responsibility. Page-specific parts stay in that page's
+  folder; move a component to `src/components/` once a second page actually uses it.
 - Derive values during render instead of syncing them into state with `useEffect`. Reserve
   `useEffect` for actual side effects (fetches, subscriptions).
-- Type props explicitly (a `type Props = {...}` next to the component). No implicit `any` from
-  untyped props.
+- Type props explicitly (a `Props` type in the component's `.type.ts` file). No implicit `any`
+  from untyped props.
 - Keys in lists must be stable IDs from the data (e.g. `assessment_id`), never array index.

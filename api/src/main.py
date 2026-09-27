@@ -3,10 +3,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.assessments.routes import router as assessments_router
 from src.assessments.store import create_schema, load_jsonl
 from src.config import get_settings
 from src.health.routes import router as health_router
-from src.utils.db import get_connection
+from src.clients.db import get_connection
 
 settings = get_settings()
 
@@ -28,3 +29,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(health_router)
+app.include_router(assessments_router)

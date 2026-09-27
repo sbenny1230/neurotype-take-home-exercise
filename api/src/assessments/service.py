@@ -3,19 +3,11 @@ data file, it's the instrument definition from the brief."""
 
 from __future__ import annotations
 
-from datetime import date
-from enum import Enum
+from datetime import date, datetime
 
-from src.assessments.model import Assessment, Domain
+from src.assessments.model import Assessment, Band, Client, Domain, DomainScore, Item
 
 SUMMARY_MIN_LENGTH = 200
-
-
-class Band(str, Enum):
-    MINIMAL = "minimal"
-    MILD = "mild"
-    MODERATE = "moderate"
-    SUBSTANTIAL = "substantial"
 
 
 def domain_percentage(domain: Domain) -> float | None:
@@ -56,3 +48,34 @@ def age_at(date_of_birth: date, assessed_at: date) -> tuple[int, int]:
         years -= 1
         months += 12
     return years, months
+
+
+def domain_scores(assessment: Assessment) -> dict[str, DomainScore]:
+    scores = {}
+    for domain in assessment.domains:
+        pct = domain_percentage(domain)
+        band = band_for_percentage(pct).value if pct is not None else None
+        scores[domain.domain] = DomainScore(percentage=pct, band=band)
+    return scores
+
+
+def parse_assessment(data: dict) -> Assessment:
+    client_data = data["client"]
+    client = Client(
+        date_of_birth=date.fromisoformat(client_data["date_of_birth"]),
+        nhs_number=client_data["nhs_number"],
+        guardian_contact=client_data["guardian_contact"],
+        safeguarding_notes=client_data.get("safeguarding_notes"),
+    )
+    domains = [
+        Domain(domain=d["domain"], items=[Item(**item) for item in d["items"]])
+        for d in data["domains"]
+    ]
+    return Assessment(
+        assessment_id=data["assessment_id"],
+        client=client,
+        assessed_at=datetime.fromisoformat(data["assessed_at"]),
+        clinician_id=data["clinician_id"],
+        domains=domains,
+        summary=data["summary"],
+    )

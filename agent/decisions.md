@@ -152,3 +152,53 @@ stay — they're safe now, scoped to a database nothing else touches.
 **Verified:** reloaded 100 rows, ran `docker compose exec api pytest` (15 passed),
 confirmed row count in the real `app` database was still 100 immediately after; full
 `./verify.sh` green.
+
+## 2026-09-24 — `GET /assessments` queue endpoint
+
+Returns every assessment as a queue row: flagged rows first, then oldest `assessed_at` first
+(changed from plain oldest-first the same day, at the user's request). Each row has
+only `assessment_id`, `clinician_id`, `assessed_at`, and `review_flag`. No `client`
+fields are sent, per the security rule of not sending PII the view doesn't display.
+`src/assessments/routes.py` gets its connection through a `get_db` dependency so tests
+can override it with the `_test` database. The `conn`/`jsonl_file` fixtures moved into
+`tests/conftest.py` because a second test file now uses them. Filtering, pagination,
+and issued status are not built yet; they get added with the tasks that need them.
+
+## 2026-09-24 — `src/utils/` → `src/middleware/`
+
+At the user's request, `db.py` moved into a new `src/middleware/` folder. That folder holds
+code that connects to outside systems: the database connection now, and credentials for
+third-party endpoints later. `src/utils/` held only `db.py`, so it was removed instead of
+being left empty. Earlier entries in this log still mention `src/utils/db.py`; that is
+the same module under its old path.
+
+Later the same day the folder was renamed to `src/clients/`. In FastAPI, "middleware"
+means per-request hooks like `CORSMiddleware`, and the folder name would have suggested
+that.
+
+## 2026-09-24 — `src/utils/` → `src/middleware/`
+
+At the user's request, `db.py` moved into a new `src/middleware/` folder. That folder holds
+code that connects to outside systems: the database connection now, and credentials for
+third-party endpoints later. `src/utils/` held only `db.py`, so it was removed instead of
+being left empty. Earlier entries in this log still mention `src/utils/db.py`; that is
+the same module under its old path.
+
+Later the same day the folder was renamed to `src/clients/`. In FastAPI, "middleware"
+means per-request hooks like `CORSMiddleware`, and the folder name would have suggested
+that.
+
+## 2026-09-24 — Web app: queue page, RTK Query, design from neurotype.uk
+
+- **Data:** RTK Query (`services/assessments/assessmentsApi.ts`) in a Redux store, chosen by the
+  user over plain `fetch`. Redux slices go in `features/` once shared client state exists.
+- **Design:** follows https://neurotype.uk: Open Sans (Google Fonts), navy `#101460` headings,
+  indigo `#4B48FF` accent, purple gradient buttons, lavender borders, 16px-radius white cards,
+  uppercase overline labels. The real black/white logo SVGs are in `web/public/`. A dark
+  palette follows the OS setting (`styles/theme.css`); the site itself is light-only.
+- **Queue page:** a table in a card (assessment, assessed date in UK format, clinician ID,
+  "Needs review" label). Loading shows skeleton rows (no animation under reduced motion);
+  errors show a message and Retry.
+- **Tooling:** Vitest + Testing Library, ESLint 10 + Prettier, bare-name folder aliases
+  (`types/...`), all checked by `verify.sh`. The folder layout and file-naming rules are in
+  `agent/rules/conventions.md`.
