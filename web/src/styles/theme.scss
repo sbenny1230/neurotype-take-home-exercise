@@ -8,6 +8,18 @@
   --color-page: #f7f7fc;
   --color-surface: #ffffff;
   --color-skeleton: #ececf5;
+  --color-muted: #6b7280;
+  --color-row-hover: rgba(75, 72, 255, 0.04);
+  --color-tooltip-fill: #101460;
+  --color-tooltip-text: #ffffff;
+  --band-minimal-text: #4b5563;
+  --band-minimal-fill: rgba(107, 114, 128, 0.12);
+  --band-mild-text: #1f4fb8;
+  --band-mild-fill: rgba(140, 176, 255, 0.25);
+  --band-moderate-text: #93370d;
+  --band-moderate-fill: rgba(247, 144, 9, 0.14);
+  --band-substantial-text: #b42318;
+  --band-substantial-fill: rgba(217, 45, 32, 0.1);
   --gradient-button: linear-gradient(135deg, #541fe2, #684fff);
   --gradient-text: linear-gradient(135deg, #541fe2, #4b48ff 50%, #8cb0ff);
   --shadow-button: 0 0.25rem 1rem rgba(84, 31, 226, 0.3);
@@ -25,6 +37,18 @@
     --color-page: #0a0c3d;
     --color-surface: #11155a;
     --color-skeleton: #1d2270;
+    --color-muted: #9a9cc4;
+    --color-row-hover: rgba(157, 155, 255, 0.07);
+    --color-tooltip-fill: #f3f3ff;
+    --color-tooltip-text: #101460;
+    --band-minimal-text: #c9cbe6;
+    --band-minimal-fill: rgba(255, 255, 255, 0.08);
+    --band-mild-text: #a9c4ff;
+    --band-mild-fill: rgba(140, 176, 255, 0.16);
+    --band-moderate-text: #fec84b;
+    --band-moderate-fill: rgba(247, 144, 9, 0.18);
+    --band-substantial-text: #ffa39e;
+    --band-substantial-fill: rgba(240, 68, 56, 0.18);
     --gradient-text: linear-gradient(135deg, #a58bff, #9d9bff 50%, #8cb0ff);
   }
 }

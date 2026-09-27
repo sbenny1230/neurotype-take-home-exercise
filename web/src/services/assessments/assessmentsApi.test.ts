@@ -10,12 +10,14 @@ const test = base
       clinician_id: 'c-008',
       assessed_at: '2025-04-03T10:30:00Z',
       review_flag: true,
+      domain_scores: {},
     },
     {
       assessment_id: 'a-00017',
       clinician_id: 'c-003',
       assessed_at: '2025-04-09T09:00:00Z',
       review_flag: false,
+      domain_scores: {},
     },
   ])
   .extend('fetchMock', ({ queue }, { onCleanup }) => {
