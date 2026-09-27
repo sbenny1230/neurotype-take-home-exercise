@@ -1,14 +1,11 @@
-import { useId, useState, type FormEvent } from 'react'
-import { useGetCliniciansQuery } from 'services/clinicians/cliniciansApi'
-import type { QueueFilters } from 'types/queueFilters.type'
 import { DOMAINS } from '../domains'
 import styles from './FilterPanel.module.scss'
 import type { FilterFormProps, FilterPanelProps } from './FilterPanel.type'
+import useFilterForm from './useFilterForm'
+import useFilterPanel from './useFilterPanel'
 
 export default function FilterPanel({ filters, onApply }: FilterPanelProps) {
-  const activeCount = Object.keys(filters).length
-  const [open, setOpen] = useState(activeCount > 0)
-  const formId = useId()
+  const { open, toggle, formId, activeCount } = useFilterPanel(filters)
 
   return (
     <div className={styles.panel}>
@@ -17,7 +14,7 @@ export default function FilterPanel({ filters, onApply }: FilterPanelProps) {
         className={styles.toggle}
         aria-expanded={open}
         aria-controls={open ? formId : undefined}
-        onClick={() => setOpen(!open)}
+        onClick={toggle}
       >
         Filters{activeCount > 0 && ` (${activeCount} active)`}
         <span className={styles.chevron} aria-hidden="true" />
@@ -30,25 +27,7 @@ export default function FilterPanel({ filters, onApply }: FilterPanelProps) {
 }
 
 function FilterForm({ id, filters, onApply }: FilterFormProps) {
-  const { data: clinicianIds = [] } = useGetCliniciansQuery()
-  const [error, setError] = useState<string | null>(null)
-  const clinicianOptions =
-    filters.clinician_id && !clinicianIds.includes(filters.clinician_id)
-      ? [...clinicianIds, filters.clinician_id]
-      : clinicianIds
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const next = filtersFromForm(new FormData(event.currentTarget))
-    const problem = filterError(next)
-    setError(problem)
-    if (!problem) onApply(next)
-  }
-
-  function handleClear() {
-    setError(null)
-    onApply({})
-  }
+  const { clinicianOptions, error, handleSubmit, handleClear } = useFilterForm(filters, onApply)
 
   return (
     <form id={id} aria-label="Queue filters" className={styles.form} onSubmit={handleSubmit}>
@@ -133,27 +112,4 @@ function FilterForm({ id, filters, onApply }: FilterFormProps) {
       </div>
     </form>
   )
-}
-
-function filtersFromForm(formData: FormData): QueueFilters {
-  return Object.fromEntries(
-    [...formData.entries()].flatMap(([name, value]) => {
-      const text = String(value).trim()
-      return text ? [[name, text]] : []
-    }),
-  )
-}
-
-function filterError(filters: QueueFilters): string | null {
-  const { score_domain, score_min, score_max, assessed_from, assessed_to } = filters
-  if ((score_min || score_max) && !score_domain) {
-    return 'Choose a score domain to filter by score.'
-  }
-  if (score_min && score_max && Number(score_min) > Number(score_max)) {
-    return 'The score "from" must not be higher than the score "to".'
-  }
-  if (assessed_from && assessed_to && assessed_from > assessed_to) {
-    return 'The "from" date must not be after the "to" date.'
-  }
-  return null
 }
