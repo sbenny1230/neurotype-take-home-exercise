@@ -75,6 +75,15 @@
 
   tbody tr {
     border-top: 1px solid var(--color-border);
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background: var(--color-row-hover);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
   }
 }
 
@@ -101,6 +110,27 @@
     border-radius: 50%;
     background: currentColor;
   }
+}
+
+.band {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999em;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+@each $band in minimal, mild, moderate, substantial {
+  .#{$band} {
+    background: var(--band-#{$band}-fill);
+    color: var(--band-#{$band}-text);
+  }
+}
+
+.notAssessed {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  font-style: italic;
 }
 
 .skeleton {

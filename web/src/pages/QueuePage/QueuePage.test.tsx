@@ -6,24 +6,40 @@ import { makeStore } from '../../store'
 import QueuePage from './QueuePage'
 
 const test = base
-  .extend('queue', (): QueueItem[] => [
+  .extend('allMinimalScores', (): QueueItem['domain_scores'] => ({
+    social_communication: { percentage: 20, band: 'minimal' },
+    sensory_processing: { percentage: 20, band: 'minimal' },
+    executive_function: { percentage: 20, band: 'minimal' },
+    emotional_regulation: { percentage: 20, band: 'minimal' },
+    motor_coordination: { percentage: 20, band: 'minimal' },
+  }))
+  .extend('queue', ({ allMinimalScores }): QueueItem[] => [
     {
       assessment_id: 'a-00052',
       clinician_id: 'c-008',
       assessed_at: '2025-04-03T10:30:00Z',
       review_flag: true,
+      domain_scores: {
+        social_communication: { percentage: 62.5, band: 'moderate' },
+        sensory_processing: { percentage: 85, band: 'substantial' },
+        executive_function: { percentage: 52.77777777777777, band: 'mild' },
+        emotional_regulation: { percentage: 18, band: 'minimal' },
+        motor_coordination: { percentage: null, band: null },
+      },
     },
     {
       assessment_id: 'a-00081',
       clinician_id: 'c-001',
       assessed_at: '2025-04-14T09:00:00Z',
       review_flag: true,
+      domain_scores: allMinimalScores,
     },
     {
       assessment_id: 'a-00017',
       clinician_id: 'c-003',
       assessed_at: '2025-04-09T09:00:00Z',
       review_flag: false,
+      domain_scores: allMinimalScores,
     },
   ])
   .extend('fetchMock', ({}, { onCleanup }) => {
@@ -73,7 +89,30 @@ test('lists the assessments in the order the api returns them', async ({
   ])
 })
 
-test('shows the assessed date, clinician and review status on each row', async ({
+test('has a column for each row field and each scored domain', async ({
+  queue,
+  fetchMock,
+  renderPage,
+}) => {
+  fetchMock.mockImplementation(async () => Response.json(queue))
+
+  renderPage()
+
+  await screen.findByText('a-00052')
+  expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+    'Assessment',
+    'Assessed',
+    'Clinician',
+    'Status',
+    'Social',
+    'Sensory',
+    'Executive',
+    'Emotional',
+    'Motor',
+  ])
+})
+
+test('shows the assessed date, clinician, review status and domain bands on each row', async ({
   queue,
   fetchMock,
   renderPage,
@@ -88,10 +127,21 @@ test('shows the assessed date, clinician and review status on each row', async (
       .getAllByRole('cell')
       .map((cell) => cell.textContent),
   )
+  const allMinimal = Array(5).fill('Minimal, 20%')
   expect(cells).toEqual([
-    ['a-00052', '3 Apr 2025', 'c-008', 'Needs review'],
-    ['a-00081', '14 Apr 2025', 'c-001', 'Needs review'],
-    ['a-00017', '9 Apr 2025', 'c-003', ''],
+    [
+      'a-00052',
+      '3 Apr 2025',
+      'c-008',
+      'Needs review',
+      'Moderate, 62.5%',
+      'Substantial, 85%',
+      'Mild, 52.8%',
+      'Minimal, 18%',
+      'Not assessed',
+    ],
+    ['a-00081', '14 Apr 2025', 'c-001', 'Needs review', ...allMinimal],
+    ['a-00017', '9 Apr 2025', 'c-003', '', ...allMinimal],
   ])
 })
 

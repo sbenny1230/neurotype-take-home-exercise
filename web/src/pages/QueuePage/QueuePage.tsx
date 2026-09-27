@@ -1,9 +1,30 @@
 import { useGetQueueQuery } from 'services/assessments/assessmentsApi'
+import type { Band, DomainName } from 'types/domainScore.type'
 import type { QueueItem } from 'types/queueItem.type'
 import styles from './QueuePage.module.scss'
-import type { QueueTableProps } from './QueuePage.type'
+import type { BandCellProps, QueueTableProps } from './QueuePage.type'
+import Tooltip from './Tooltip'
 
 const SKELETON_ROW_COUNT = 8
+
+const DOMAIN_COLUMNS: { domain: DomainName; label: string; fullName: string }[] = [
+  { domain: 'social_communication', label: 'Social', fullName: 'Social communication' },
+  { domain: 'sensory_processing', label: 'Sensory', fullName: 'Sensory processing' },
+  { domain: 'executive_function', label: 'Executive', fullName: 'Executive function' },
+  { domain: 'emotional_regulation', label: 'Emotional', fullName: 'Emotional regulation' },
+  { domain: 'motor_coordination', label: 'Motor', fullName: 'Motor coordination' },
+]
+
+const COLUMN_COUNT = 4 + DOMAIN_COLUMNS.length
+
+const BAND_LABELS: Record<Band, string> = {
+  minimal: 'Minimal',
+  mild: 'Mild',
+  moderate: 'Moderate',
+  substantial: 'Substantial',
+}
+
+const percentage = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 })
 
 const assessedDate = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
@@ -55,6 +76,11 @@ function TableHead() {
         <th scope="col">Assessed</th>
         <th scope="col">Clinician</th>
         <th scope="col">Status</th>
+        {DOMAIN_COLUMNS.map(({ domain, label, fullName }) => (
+          <th key={domain} scope="col">
+            <Tooltip label={fullName}>{label}</Tooltip>
+          </th>
+        ))}
       </tr>
     </thead>
   )
@@ -71,7 +97,7 @@ function LoadingTable() {
         <tbody>
           {Array.from({ length: SKELETON_ROW_COUNT }, (_, row) => (
             <tr key={row}>
-              {Array.from({ length: 4 }, (_, cell) => (
+              {Array.from({ length: COLUMN_COUNT }, (_, cell) => (
                 <td key={cell}>
                   <span className={styles.skeleton} />
                 </td>
@@ -95,9 +121,31 @@ function QueueTable({ queue }: QueueTableProps) {
             <td>{assessedDate.format(new Date(item.assessed_at))}</td>
             <td>{item.clinician_id}</td>
             <td>{item.review_flag && <span className={styles.flag}>Needs review</span>}</td>
+            {DOMAIN_COLUMNS.map(({ domain }) => (
+              <BandCell key={domain} score={item.domain_scores[domain]} />
+            ))}
           </tr>
         ))}
       </tbody>
     </table>
+  )
+}
+
+function BandCell({ score }: BandCellProps) {
+  if (!score?.band || score.percentage === null) {
+    return (
+      <td>
+        <span className={styles.notAssessed}>Not assessed</span>
+      </td>
+    )
+  }
+  const percent = `${percentage.format(score.percentage)}%`
+  return (
+    <td>
+      <Tooltip label={percent}>
+        <span className={`${styles.band} ${styles[score.band]}`}>{BAND_LABELS[score.band]}</span>
+      </Tooltip>
+      <span className={styles.visuallyHidden}>, {percent}</span>
+    </td>
   )
 }
