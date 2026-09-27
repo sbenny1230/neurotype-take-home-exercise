@@ -17,14 +17,9 @@
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: translateY(-25%) rotate(45deg);
-  transition: transform 0.15s ease;
 
   .toggle[aria-expanded='true'] & {
     transform: translateY(25%) rotate(-135deg);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
   }
 }
 
@@ -55,15 +50,8 @@
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--color-control-border);
     border-radius: 0.5rem;
-    background: var(--color-surface);
-    color: var(--color-heading);
     font: inherit;
     font-weight: 400;
-
-    &:focus-visible {
-      outline: 2px solid var(--color-accent);
-      outline-offset: 1px;
-    }
   }
 }
 
@@ -75,7 +63,6 @@
 
 .actions {
   display: flex;
-  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 1.25rem;

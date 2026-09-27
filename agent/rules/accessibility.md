@@ -12,8 +12,8 @@ The web app meets WCAG 2.1 level AA. Check these on every UI change:
 - **Not colour alone (1.4.1).** Status is written out in words (e.g. "Needs review"), with
   colour only as a second signal.
 - **Keyboard (2.1.1, 2.4.7).** Every action works from the keyboard using native elements
-  (`<button>`, `<a>`), never click handlers on `<div>`s. Focus is always visible
-  (`:focus-visible` outline).
+  (`<button>`, `<a>`), never click handlers on `<div>`s. Focus is always visible:
+  keep the browser's focus ring and never remove it with `outline: none`.
 - **Semantics (1.3.1, 4.1.2).** Use real structure: one `<h1>` per page, `<header>` / `<main>`,
   tables with `<th scope>`. Images have `alt` text; decorative elements get
   `aria-hidden="true"`.

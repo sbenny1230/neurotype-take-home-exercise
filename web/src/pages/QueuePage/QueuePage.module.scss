@@ -33,7 +33,6 @@
   margin: 0 0 0.5rem;
   color: var(--color-heading);
   font-size: clamp(1.75rem, 1.25rem + 2.5vw, 2.5rem);
-  font-weight: 700;
 }
 
 .gradient {
@@ -57,11 +56,6 @@
 
 .busy {
   opacity: 0.6;
-  transition: opacity 0.15s ease;
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
 }
 
 .table {
@@ -79,21 +73,15 @@
   th {
     color: var(--color-heading);
     font-size: 0.8125rem;
-    font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
 
   tbody tr {
     border-top: 1px solid var(--color-border);
-    transition: background-color 0.15s ease;
 
     &:hover {
       background: var(--color-row-hover);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
     }
   }
 }
@@ -103,32 +91,18 @@
   font-weight: 600;
 }
 
-.flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999em;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-size: 0.8125rem;
-  font-weight: 700;
-
-  &::before {
-    content: '';
-    width: 0.375rem;
-    height: 0.375rem;
-    border-radius: 50%;
-    background: currentColor;
-  }
-}
-
+.flag,
 .band {
   display: inline-block;
   padding: 0.25rem 0.625rem;
   border-radius: 999em;
   font-size: 0.8125rem;
   font-weight: 700;
+}
+
+.flag {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 @each $band in minimal, mild, moderate, substantial {
