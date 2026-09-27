@@ -28,7 +28,8 @@ Current features:
 - `health` — liveness check (`GET /health`)
 - `assessments` — scoring/banding/review-flag domain logic, a `store.py` that
   creates the Postgres schema and loads `data/assessments.jsonl` on startup, and the
-  queue endpoint (`GET /assessments`)
+  queue endpoint (`GET /assessments`, with filters)
+- `clinicians` — distinct clinician IDs for the queue's clinician filter (`GET /clinicians`)
 
 ## Data
 

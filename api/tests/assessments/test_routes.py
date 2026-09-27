@@ -1,16 +1,6 @@
 import pytest
-from fastapi.testclient import TestClient
 
-from src.assessments.routes import get_db
 from src.assessments.store import load_jsonl
-from src.main import app
-
-
-@pytest.fixture
-def client(conn):
-    app.dependency_overrides[get_db] = lambda: conn
-    yield TestClient(app)
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture

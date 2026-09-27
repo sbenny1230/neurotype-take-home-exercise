@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.assessments.routes import router as assessments_router
 from src.assessments.store import create_schema, load_jsonl
+from src.clinicians.routes import router as clinicians_router
 from src.config import get_settings
 from src.health.routes import router as health_router
 from src.clients.db import get_connection
@@ -30,3 +31,4 @@ app.add_middleware(
 )
 app.include_router(health_router)
 app.include_router(assessments_router)
+app.include_router(clinicians_router)
