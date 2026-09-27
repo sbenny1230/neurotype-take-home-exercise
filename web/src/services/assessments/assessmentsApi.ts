@@ -1,13 +1,14 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
-import getApiUrl from 'utils/getApiUrl'
+import { baseApi } from 'services/baseApi'
+import type { QueueFilters } from 'types/queueFilters.type'
 import type { QueueItem } from 'types/queueItem.type'
 
-export const assessmentsApi = createApi({
-  reducerPath: 'assessmentsApi',
-  baseQuery: fetchBaseQuery({ baseUrl: getApiUrl() }),
+export const assessmentsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getQueue: build.query<QueueItem[], void>({
-      query: () => '/assessments',
+    getQueue: build.query<QueueItem[], QueueFilters>({
+      query: (filters) => ({
+        url: '/assessments',
+        params: Object.keys(filters).length > 0 ? filters : undefined,
+      }),
     }),
   }),
 })
