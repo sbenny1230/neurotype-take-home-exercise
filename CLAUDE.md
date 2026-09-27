@@ -31,6 +31,10 @@ docker compose up          # api (8000), web (5173), db (postgres)
 - api dependency added to `requirements.txt` → `docker compose up --build api`
 - web dependency added to `package.json` → `docker compose restart web` (not `--build`:
   `node_modules` is a volume that shadows the image layer)
+- Editor types for `web/` (VS Code "cannot find module 'react/jsx-runtime'"): run `npm ci` in
+  `web/` on the host, then restart the TS server. The container's `node_modules` volume is
+  invisible to the host. Use `npm ci`, never `npm install`, on the host: `ci` leaves the
+  container-generated lockfile untouched.
 - `npm run build` (in `web/`) runs `tsc -b && vite build`; passes on a clean checkout, usable as
   a check gate.
 
