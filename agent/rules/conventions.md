@@ -17,7 +17,7 @@ web/
   src/
     assets/       static files imported by components (logos, images)
     components/   reusable components (used by more than one page)
-    styles/       shared SCSS (theme variables, base styles)
+    styles/       shared SCSS (theme variables, base styles, mixins like _buttons.scss)
     services/     RTK Query APIs: one folder per backend feature (e.g. services/assessments/)
     features/     Redux slices
     types/        shared domain types (e.g. queueItem.type.ts)
