@@ -34,7 +34,7 @@ const assessedDate = new Intl.DateTimeFormat('en-GB', {
 })
 
 export default function QueuePage() {
-  const { data: queue, isLoading, isError, refetch } = useGetQueueQuery()
+  const { data: queue, isLoading, isError, refetch } = useGetQueueQuery({})
 
   return (
     <main className={styles.page}>
