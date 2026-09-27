@@ -1,9 +1,9 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { assessmentsApi } from 'services/assessments/assessmentsApi'
+import { baseApi } from 'services/baseApi'
 
 export function makeStore() {
   return configureStore({
-    reducer: { [assessmentsApi.reducerPath]: assessmentsApi.reducer },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(assessmentsApi.middleware),
+    reducer: { [baseApi.reducerPath]: baseApi.reducer },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(baseApi.middleware),
   })
 }

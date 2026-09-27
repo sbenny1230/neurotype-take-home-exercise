@@ -202,3 +202,13 @@ that.
 - **Tooling:** Vitest + Testing Library, ESLint 10 + Prettier, bare-name folder aliases
   (`types/...`), all checked by `verify.sh`. The folder layout and file-naming rules are in
   `agent/rules/conventions.md`.
+
+## 2026-09-27 — Editor type errors: host `web/node_modules` was empty
+
+VS Code reported "JSX tag requires the module path 'react/jsx-runtime'" although the container
+build type-checked cleanly. Cause: packages are installed into the container's anonymous
+`node_modules` volume, so the host's `web/node_modules` was an empty directory and the editor had
+no types. Fix: `npm ci` on the host, which installs exactly from `package-lock.json` without
+rewriting it (checked: lockfile hash unchanged). This is unlike `npm install`, which caused the
+rollup/musl lockfile bug above. The container is unaffected, since its volume shadows the host
+folder.

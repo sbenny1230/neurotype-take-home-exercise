@@ -2,10 +2,13 @@ import json
 
 import psycopg
 import pytest
+from fastapi.testclient import TestClient
 from psycopg import sql
 
 from src.assessments.store import create_schema
+from src.clients.db import get_db
 from src.config import get_settings
+from src.main import app
 
 TEST_DATABASE_URL = get_settings().database_url + "_test"
 
@@ -40,3 +43,34 @@ def jsonl_file(tmp_path):
         return str(path)
 
     return _write
+
+
+@pytest.fixture
+def client(conn):
+    app.dependency_overrides[get_db] = lambda: conn
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def record() -> dict:
+    return {
+        "assessment_id": "a-test-1",
+        "client": {
+            "date_of_birth": "2014-03-02",
+            "nhs_number": "999 476 5919",
+            "guardian_contact": "j.okafor@example.com",
+        },
+        "assessed_at": "2026-03-02T09:30:00+00:00",
+        "clinician_id": "c-005",
+        "domains": [
+            {
+                "domain": "social_communication",
+                "items": [
+                    {"code": "SC1", "raw": 19, "max": 20, "completed": True},
+                    {"code": "SC2", "raw": None, "max": 20, "completed": False},
+                ],
+            }
+        ],
+        "summary": "x" * 250,
+    }

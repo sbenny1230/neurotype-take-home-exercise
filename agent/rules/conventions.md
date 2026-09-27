@@ -17,7 +17,7 @@ web/
   src/
     assets/       static files imported by components (logos, images)
     components/   reusable components (used by more than one page)
-    styles/       shared SCSS (theme variables, base styles)
+    styles/       shared SCSS (theme variables, base styles, mixins like _buttons.scss)
     services/     RTK Query APIs: one folder per backend feature (e.g. services/assessments/)
     features/     Redux slices
     types/        shared domain types (e.g. queueItem.type.ts)
@@ -29,6 +29,10 @@ web/
 
 - Colocate: a file's types (`.type.ts`), interfaces (`.interface.ts`), styles
   (`.module.scss`) and unit tests (`.test.ts` / `.test.tsx`) sit next to it.
+- Styles are minimal: write a declaration only when the design needs it and the browser
+  doesn't already do it. Lean on defaults (bold `h1`/`th`, native focus rings,
+  `color-scheme` theming native inputs) and don't add polish nobody asked for (transitions,
+  shadows). Share a rule when two classes are the same (`.flag, .band`).
 - Component styles are CSS Modules (`Foo.module.scss`, used as `className={styles.table}`), so
   class names are scoped per file and pages can reuse short names like `.table` without clashing.
   Plain global `.scss` only in `src/styles/` (theme variables, base element styles).

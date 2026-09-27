@@ -1,8 +1,16 @@
 # React conventions
 
 - Function components with hooks only. No class components.
-- API calls go through RTK Query in `src/services/`. State shared between components goes in
-  Redux slices in `src/features/`. State used by a single component stays in `useState`.
+- API calls go through RTK Query in `src/services/`. There is one `createApi` instance
+  (`services/baseApi.ts`); each backend feature adds its endpoints with
+  `baseApi.injectEndpoints` in its own folder (`services/assessments/assessmentsApi.ts`).
+  State shared between components goes in Redux slices in `src/features/`. State used by a
+  single component stays in `useState`.
+- Components hold no state or business logic: only markup and display formatting. State,
+  effects, data fetching and decisions go in a hook colocated with the component, named after
+  it (`FilterPanel.tsx` → `useFilterPanel.ts`, same folder). Split a hook into smaller ones
+  when it mixes concerns (e.g. `useTooltip` uses `useDismissTooltip` for its Esc/scroll
+  listeners).
 - Keep components small and split by responsibility. Page-specific parts stay in that page's
   folder; move a component to `src/components/` once a second page actually uses it.
 - Derive values during render instead of syncing them into state with `useEffect`. Reserve
