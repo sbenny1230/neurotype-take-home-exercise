@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 
 export type TooltipProps = {
   label: string
@@ -8,4 +8,10 @@ export type TooltipProps = {
 export type TooltipPosition = {
   top: number
   left: number
+}
+
+export type TooltipState = {
+  position: TooltipPosition | null
+  show: (event: MouseEvent<HTMLElement>) => void
+  hide: () => void
 }
