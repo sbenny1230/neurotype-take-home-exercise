@@ -50,6 +50,19 @@ const test = base
     })
     return fetchMock
   })
+  .extend('visitUrl', ({}, { onCleanup }) => {
+    onCleanup(() => {
+      window.history.replaceState(null, '', '/')
+    })
+    return (url: string) => window.history.replaceState(null, '', url)
+  })
+  .extend('routedFetch', ({ queue, fetchMock }) => {
+    fetchMock.mockImplementation(async (request) => {
+      const url = request instanceof Request ? request.url : String(request)
+      return Response.json(url.includes('/clinicians') ? ['c-008'] : queue)
+    })
+    return fetchMock
+  })
   .extend('renderPage', ({}, { onCleanup }) => {
     onCleanup(cleanup)
     return () =>
@@ -175,4 +188,46 @@ test('shows an error with a retry that fetches the queue again', async ({
   expect((await screen.findByRole('alert')).textContent).toContain("Couldn't load the queue")
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
   expect(await screen.findByText('a-00052')).toBeTruthy()
+})
+
+function requestedUrls(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): string[] {
+  return fetchMock.mock.calls.map(([request]) =>
+    request instanceof Request ? request.url : String(request),
+  )
+}
+
+test('requests the queue with the filters in the URL', async ({
+  visitUrl,
+  routedFetch,
+  renderPage,
+}) => {
+  visitUrl('/?review_flag=true&clinician_id=c-008')
+
+  renderPage()
+
+  await screen.findByText('a-00052')
+  expect(requestedUrls(routedFetch)).toContain(
+    'http://localhost:8000/assessments?review_flag=true&clinician_id=c-008',
+  )
+})
+
+test('applying filters refetches the queue and records them in the URL', async ({
+  visitUrl,
+  routedFetch,
+  renderPage,
+}) => {
+  visitUrl('/')
+  renderPage()
+  await screen.findByText('a-00052')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }))
+  fireEvent.change(screen.getByLabelText('Review status'), { target: { value: 'true' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+
+  await vi.waitFor(() =>
+    expect(requestedUrls(routedFetch)).toContain(
+      'http://localhost:8000/assessments?review_flag=true',
+    ),
+  )
+  expect(window.location.search).toBe('?review_flag=true')
 })

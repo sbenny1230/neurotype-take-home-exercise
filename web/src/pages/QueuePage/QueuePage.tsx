@@ -1,21 +1,14 @@
-import { useGetQueueQuery } from 'services/assessments/assessmentsApi'
-import type { Band, DomainName } from 'types/domainScore.type'
-import type { QueueItem } from 'types/queueItem.type'
+import type { Band } from 'types/domainScore.type'
 import styles from './QueuePage.module.scss'
+import { DOMAINS } from './domains'
+import FilterPanel from './FilterPanel'
 import type { BandCellProps, QueueTableProps } from './QueuePage.type'
 import Tooltip from './Tooltip'
+import useQueuePage from './useQueuePage'
 
 const SKELETON_ROW_COUNT = 8
 
-const DOMAIN_COLUMNS: { domain: DomainName; label: string; fullName: string }[] = [
-  { domain: 'social_communication', label: 'Social', fullName: 'Social communication' },
-  { domain: 'sensory_processing', label: 'Sensory', fullName: 'Sensory processing' },
-  { domain: 'executive_function', label: 'Executive', fullName: 'Executive function' },
-  { domain: 'emotional_regulation', label: 'Emotional', fullName: 'Emotional regulation' },
-  { domain: 'motor_coordination', label: 'Motor', fullName: 'Motor coordination' },
-]
-
-const COLUMN_COUNT = 4 + DOMAIN_COLUMNS.length
+const COLUMN_COUNT = 4 + DOMAINS.length
 
 const BAND_LABELS: Record<Band, string> = {
   minimal: 'Minimal',
@@ -34,7 +27,17 @@ const assessedDate = new Intl.DateTimeFormat('en-GB', {
 })
 
 export default function QueuePage() {
-  const { data: queue, isLoading, isError, refetch } = useGetQueueQuery({})
+  const {
+    filters,
+    applyFilters,
+    queue,
+    isLoading,
+    isFetching,
+    isRefreshing,
+    isError,
+    summary,
+    retry,
+  } = useQueuePage()
 
   return (
     <main className={styles.page}>
@@ -45,27 +48,26 @@ export default function QueuePage() {
       <h1 className={styles.heading}>
         Assessments awaiting <span className={styles.gradient}>review</span>
       </h1>
-      {queue && <p className={styles.summary}>{summarise(queue)}</p>}
-      <div className={styles.card}>
+      <FilterPanel filters={filters} onApply={applyFilters} />
+      {summary && <p className={styles.summary}>{summary}</p>}
+      <div
+        className={isRefreshing ? `${styles.card} ${styles.busy}` : styles.card}
+        aria-busy={isFetching}
+      >
         {isLoading && <LoadingTable />}
         {isError && (
           <div role="alert" className={styles.message}>
             Couldn&apos;t load the queue.
-            <button type="button" className={styles.retry} onClick={() => refetch()}>
+            <button type="button" className={styles.retry} onClick={retry}>
               Retry
             </button>
           </div>
         )}
-        {queue?.length === 0 && <p className={styles.message}>No assessments</p>}
-        {queue && queue.length > 0 && <QueueTable queue={queue} />}
+        {!isError && queue?.length === 0 && <p className={styles.message}>No assessments</p>}
+        {!isError && queue && queue.length > 0 && <QueueTable queue={queue} />}
       </div>
     </main>
   )
-}
-
-function summarise(queue: QueueItem[]): string {
-  const needsReview = queue.filter((item) => item.review_flag).length
-  return `${queue.length} assessments · ${needsReview} need review`
 }
 
 function TableHead() {
@@ -76,7 +78,7 @@ function TableHead() {
         <th scope="col">Assessed</th>
         <th scope="col">Clinician</th>
         <th scope="col">Status</th>
-        {DOMAIN_COLUMNS.map(({ domain, label, fullName }) => (
+        {DOMAINS.map(({ domain, label, fullName }) => (
           <th key={domain} scope="col">
             <Tooltip label={fullName}>{label}</Tooltip>
           </th>
@@ -121,7 +123,7 @@ function QueueTable({ queue }: QueueTableProps) {
             <td>{assessedDate.format(new Date(item.assessed_at))}</td>
             <td>{item.clinician_id}</td>
             <td>{item.review_flag && <span className={styles.flag}>Needs review</span>}</td>
-            {DOMAIN_COLUMNS.map(({ domain }) => (
+            {DOMAINS.map(({ domain }) => (
               <BandCell key={domain} score={item.domain_scores[domain]} />
             ))}
           </tr>
